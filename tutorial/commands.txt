@@ -1,0 +1,9 @@
+Compile: mpicc hello.c -o hello
+Run 4 processes: mpirun -np 4 hello
+
+Connect to Ferlin (Kerberos required):
+    ssh -Y your-user-name-at-pdc@ferlin.pdc.kth.se
+
+    module add heimdal easy i-compilers mpi
+    spattach -i -p <#virtual_nodes>
+    esubmit -n 1 -t 5 mympirun -np 4 <path to your executable>
