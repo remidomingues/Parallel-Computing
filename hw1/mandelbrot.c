@@ -4,6 +4,7 @@
 // Export a rendering matrix into an ASCII file.
 // This one can be read in Matlab using "load -ascii rendering.txt"
 void exportRendering(unsigned char * rendering, unsigned int height, unsigned int width) {
+    printf("0 > Exporting rendering...\n");
     FILE *fp = fopen("rendering.txt","w");
     int i, j;
     for (j = 0; j < width; j++) {
@@ -12,6 +13,7 @@ void exportRendering(unsigned char * rendering, unsigned int height, unsigned in
         fprintf(fp, "\n");
     }
     fclose(fp);
+    printf("0 > Export complete\n");
 }
 
 unsigned char compute_pixel(unsigned int d, unsigned int b, unsigned int N) {
@@ -36,6 +38,8 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
     unsigned int yoff = 0;
     int dreal, dimag, d, x, y, i = 0;
 
+    printf("%d > Processing rendering (%d:%d, %d:%d)...\n", p, xoff, xoff+wp, yoff, yoff+hp);
+
     for(x = 0; x < wp-1; ++x) {
         dreal = (x+xoff)*dx-b;
 
@@ -47,14 +51,16 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
             ++i; //TODO CHECK
         }
     }
+
+    printf("%d > Rendering complete\n", p);
 }
 
 int main(int argc, char **argv) {
-    unsigned int N = 256;
+    unsigned int N = 6; //TODO: Final depth = 256
     unsigned int b = 2;
     unsigned int P;
-    unsigned int height = 2048;
-    unsigned int width = 2048;
+    unsigned int height = 12; //TODO: final rendering in 2048*2048
+    unsigned int width = 12;
     unsigned int rank;
 
     MPI_Init(&argc, &argv);
@@ -84,6 +90,7 @@ int main(int argc, char **argv) {
 
         for(q = 1; q < P-1; ++q) {
             MPI_Recv(buffer, bufferSize, MPI_CHAR, q, 1, MPI_COMM_WORLD, &status);
+            printf("%d > Received rendering from %d\n", rank, q);
             /*
             xoff = q*width/P;
 
