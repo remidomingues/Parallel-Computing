@@ -1,5 +1,8 @@
-Compile: mpicc hello.c -o hello
-Run 4 processes: mpirun -np 4 hello
+Compile:
+mpicc mandelbrot.c -o mandelbrot
+
+Run 4 processes:
+mpirun -np 4 mandelbrot
 
 Connect to Ferlin (Kerberos required):
     ssh -Y your-user-name-at-pdc@ferlin.pdc.kth.se
