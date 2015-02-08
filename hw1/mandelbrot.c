@@ -16,9 +16,9 @@ void exportRendering(unsigned char * rendering, unsigned int height, unsigned in
     printf("0 > Export complete\n");
 }
 
-unsigned char compute_pixel(unsigned int d, unsigned int b, unsigned int N) {
+unsigned char compute_pixel(double d, unsigned int b, unsigned int N) {
     unsigned char value = 1;
-    unsigned int z = 0;
+    double z = 0;
 
     while((abs(z) < b) & (value < N)) {
         z = z^2+d;
@@ -30,20 +30,21 @@ unsigned char compute_pixel(unsigned int d, unsigned int b, unsigned int N) {
 
 void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned int height,
         unsigned int width, unsigned char * rendering, unsigned int p) {
-    unsigned int dx = 2*b/(width-1);
-    unsigned int dy = 2*b/(height-1);
+    double dx = 2.0*b/(width-1);
+    double dy = 2.0*b/(height-1);
     unsigned int wp = width/P;
     unsigned int hp = height;
     unsigned int xoff = p*width/P;
     unsigned int yoff = 0;
-    int dreal, dimag, d, x, y, i = 0;
+    unsigned int, x, y, i = 0;
+    double dreal, dimag, d;
 
     printf("%d > Processing rendering (%d:%d, %d:%d)...\n", p, xoff, xoff+wp, yoff, yoff+hp);
 
     for(x = 0; x < wp-1; ++x) {
         dreal = (x+xoff)*dx-b;
 
-        for(y = 0; y < height-1; ++y) {
+        for(y = 0; y < hp-1; ++y) {
             dimag = (y+yoff)*dy-b;
             d = dreal+i*dimag;
 
