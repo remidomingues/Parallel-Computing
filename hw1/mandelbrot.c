@@ -57,11 +57,11 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
 }
 
 int main(int argc, char **argv) {
-    unsigned int N = 6; //TODO: Final depth = 256
+    unsigned int N = 196; //TODO: Final depth = 256
     unsigned int b = 2;
     unsigned int P;
-    unsigned int height = 12; //TODO: final rendering in 2048*2048
-    unsigned int width = 12;
+    unsigned int height = 96; //TODO: final rendering in 2048*2048
+    unsigned int width = 96;
     unsigned int rank;
 
     MPI_Init(&argc, &argv);
@@ -69,7 +69,8 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     if(width%P != 0) {
-        printf("The number of processes (%d) must evenly divide the image width (%d)", P, width);
+        printf("The number of processes (%d) must evenly divide the image width (%d)\n", P, width);
+        return;
     }
 
     unsigned int size = height*width;
