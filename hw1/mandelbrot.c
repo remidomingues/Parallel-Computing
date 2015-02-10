@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
         MPI_Status status;
         unsigned char buffer[bufferSize];
 
-        for(q = 1; q < P-1; ++q) {
+        for(q = 1; q < P; ++q) {  // must be q<P so that P-1 is included!
             MPI_Recv(buffer, bufferSize, MPI_CHAR, q, 1, MPI_COMM_WORLD, &status);
             printf("%d > Received rendering from %d\n", rank, q);
             offset = q*bufferSize;
