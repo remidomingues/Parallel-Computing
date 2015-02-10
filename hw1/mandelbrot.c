@@ -38,16 +38,17 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
     unsigned int xoff = p*width/P;
     unsigned int yoff = 0;
     unsigned int x, y, i = 0;
-    double complex d;  // inbuilt function for dreal, dimag, 
+    double dreal, dimag;
+    double complex d;  // inbuilt function for dreal, dimag, or so I thought!?
 
     printf("%d > Processing rendering (%d:%d, %d:%d)...\n", p, xoff, xoff+wp, yoff, yoff+hp);
 
     for(x = 0; x < wp-1; ++x) {
-        real(d) = (x+xoff)*dx-b;
+        dreal = (x+xoff)*dx-b;
 
         for(y = 0; y < hp-1; ++y) {
-            imag(d) = (y+yoff)*dy-b;
-            //d = dreal+I*dimag; inbuilt function for dreal and dimag
+            dimag = (y+yoff)*dy-b;
+            d = dreal+I*dimag; 
 
             rendering[y+x*hp] = computePixel(d, b, N);
         }
