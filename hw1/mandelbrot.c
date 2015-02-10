@@ -97,8 +97,8 @@ int main(int argc, char **argv) {
             printf("%d > Received rendering from %d\n", rank, q);
             offset = q*bufferSize;
 
-            for(x = 0; x < wp-1; ++x) {
-                for(y = 0; y < hp-1; ++y) {
+            for(x = 0; x < wp; ++x) {
+                for(y = 0; y < hp; ++y) {
                     rendering[y+x*hp+offset] = buffer[y+x*hp];
                 }
             }
