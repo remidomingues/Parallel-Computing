@@ -43,10 +43,10 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
 
     printf("%d > Processing rendering (%d:%d, %d:%d)...\n", p, xoff, xoff+wp, yoff, yoff+hp);
 
-    for(x = 0; x < wp-1; ++x) {
+    for(x = 0; x < wp; ++x) {  // w-1 must be included
         dreal = (x+xoff)*dx-b;
 
-        for(y = 0; y < hp-1; ++y) {
+        for(y = 0; y < hp; ++y) { // idem
             dimag = (y+yoff)*dy-b;
             d = dreal+I*dimag; 
 
