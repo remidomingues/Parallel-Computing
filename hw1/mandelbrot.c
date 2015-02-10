@@ -43,10 +43,10 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
     printf("%d > Processing rendering (%d:%d, %d:%d)...\n", p, xoff, xoff+wp, yoff, yoff+hp);
 
     for(x = 0; x < wp-1; ++x) {
-        d(real) = (x+xoff)*dx-b;
+        real(d) = (x+xoff)*dx-b;
 
         for(y = 0; y < hp-1; ++y) {
-            d(imag) = (y+yoff)*dy-b;
+            imag(d) = (y+yoff)*dy-b;
             //d = dreal+I*dimag; inbuilt function for dreal and dimag
 
             rendering[y+x*hp] = computePixel(d, b, N);
