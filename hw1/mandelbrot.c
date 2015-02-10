@@ -17,9 +17,9 @@ void exportRendering(unsigned char * rendering, unsigned int height, unsigned in
     printf("0 > Export complete\n");
 }
 
-unsigned char computePixel(double d, unsigned int b, unsigned int N) {
+unsigned char computePixel(double complex d, unsigned int b, unsigned int N) {  //must specify complex
     unsigned char value = 1;
-    long double z = 0 + 0*I;
+    long double complex z = 0 + 0*I;
 
     while((cabs(z) < b) && (value < N)) {
         z = z*z+d;
@@ -38,7 +38,7 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
     unsigned int xoff = p*width/P;
     unsigned int yoff = 0;
     unsigned int x, y, i = 0;
-    double dreal, dimag, d;
+    double complex d;  // inbuilt function for dreal, dimag, 
 
     printf("%d > Processing rendering (%d:%d, %d:%d)...\n", p, xoff, xoff+wp, yoff, yoff+hp);
 
@@ -47,7 +47,7 @@ void computeRendering(unsigned int P, unsigned int N, unsigned int b, unsigned i
 
         for(y = 0; y < hp-1; ++y) {
             dimag = (y+yoff)*dy-b;
-            d = dreal+I*dimag;
+            //d = dreal+I*dimag; inbuilt function for dreal and dimag
 
             rendering[y+x*hp] = computePixel(d, b, N);
         }
