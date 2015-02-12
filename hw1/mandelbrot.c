@@ -61,8 +61,8 @@ int main(int argc, char **argv) {
     unsigned int N = 196; //TODO: Final depth = 256
     unsigned int b = 2;
     unsigned int P;
-    unsigned int height = 96; //TODO: final rendering in 2048*2048
-    unsigned int width = 96;
+    unsigned int height = 2048; //TODO: final rendering in 2048*2048
+    unsigned int width = 2048;
     unsigned int rank;
 
     MPI_Init(&argc, &argv);
