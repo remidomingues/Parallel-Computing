@@ -11,6 +11,9 @@
 /* Use MPI */
 #include "mpi.h"
 
+//Include math.h ??? 
+#include "math.h"
+
 /* define problem to be solved */
 #define N 1000   /* number of inner grid points */
 #define SMX 1000000 /* number of iterations */
@@ -39,11 +42,16 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
+    
+    L = N/P;
+    
     if (N < P) {
 	fprintf(stdout, "Too few discretization points...\n");
 	exit(1);
     }
-/* Compute local indices for data distribution */
+
+/* Compute local indices for data distribution Problem is one dimensional */
+
 
 /* arrays */
     unew = (double *) malloc(I*sizeof(double));
