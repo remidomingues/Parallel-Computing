@@ -44,6 +44,9 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
     
     L = N/P;
+    R = N%P; //I will force this to be zero ie P will evenly divide N
+    I = (N+P-p-1)/P;   // (number of local elements)
+    n = p*L+MIN(p,R)+i; //(global index for given (p,i)
     
     if (N < P) {
 	fprintf(stdout, "Too few discretization points...\n");
@@ -64,6 +67,18 @@ int main(int argc, char *argv[])
 /* Jacobi iteration */
     for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
+	if p % 2 == 0 // red?  From slides, TO DO
+		send(u[Ip_2],p+1);
+		receive(u[Ip-1],p+1);
+		send(u[1],p-1);
+		receive(u[0],p-1);
+	else
+		MPI_send(u[0], N, MPI_DOUBLE, 0,1, MPI_COMM_WORLD );
+		/* receive(u[0],p-1);
+		send(u[1],p-1);
+		receive(u[Ip-1],p+1);
+		send(u[Ip-2],p+1);*/
+	}
 
 /* local iteration step */
 /*
