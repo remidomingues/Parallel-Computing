@@ -12,12 +12,11 @@
 #include "mpi.h"
 #include <stdio.h>
 #include <stdlib.h>
-//Include math.h ??? 
 #include "math.h"
 
 /* define problem to be solved */
-#define N 100   /* number of inner grid points */
-#define SMX 2 // 1000000 /* number of iterations */
+#define N 1000   /* number of inner grid points */
+#define SMX 1000000 /* number of iterations */
 
 /* implement coefficient functions */
 extern double r(const double x);
