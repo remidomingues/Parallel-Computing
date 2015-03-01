@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
     int  L = N/P;
     int I = L; 
-    double  h = 1/N;
+    double   h = 1.0/N;
     double R = N%P;  
     
     if (N < P) {
@@ -78,7 +78,7 @@ int 	k;
 		ff[k] = exp(- pow( (h*(k+1+p*I)-0.5)/0.3,2) ) ;
 		rr[k] = sin(h*(k+1+p*I));
 	}
-printf("h=%f, k=%d, p=%d, I=%d, result=%f", h, k, p, I,  exp(- pow( (h*(k+1+p*I)-0.5)/0.3,2) ));
+//printf("h=%f, k=%d, p=%d, I=%d, result=%f", h, k, p, I,  exp(- pow( (h*(k+1+p*I)-0.5)/0.3,2) ));
 
 /* Jacobi iteration */
     int step;
