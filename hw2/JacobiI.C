@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     
     if (N < P) {
 	fprintf(stdout, "Too few discretization points...\n");
-	//exit(1) ; Compiler did not like this expression?
+	exit(1) ; 
     }
 
 /* Compute local indices for data distribution, I DO NOT UNDERSTAND THIS (YET)*/
@@ -83,29 +83,34 @@ int 	k;
     int step;
 for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
-	if(p==0){
+	if(p==0){ // First is red
 		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
 		printf("Process %d sent to process %d \n", p,  p +1);
 		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+		printf("Process %d received from process %d \n", p,  p +1);
 
 		u[0] = 0;
 	}
 
-	else if(p < P-1 ){
+	else if(p < P-1 && p %2!=0){ //Black blocks
 		
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 		printf("Process %d received from process %d \n", p,  p -1 );
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);	
+		printf("Process %d sent to process %d \n", p,  p -1);
 		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
+		printf("Process %d received from process %d \n", p,  p +1);
 		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD);
+		printf("Process %d sent to process %d \n", p,  p +1);
 	
 	}
-		else if(p % 2 == 0 && p != 0){ // red?  From slides, TO DO
+	else if(p % 2 == 0 && p != 0){ // RED
 		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
 	    printf("Process %d sent to process %d \n", p,  p +1 );
 		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
-	
+	printf("Process %d received from process %d \n", p,  p +1);
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
+		printf("Process %d sent to process %d \n", p,  p -1);
 	
 		MPI_Recv((&(u[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 	}
