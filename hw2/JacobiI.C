@@ -145,6 +145,7 @@ if (p != 0) {
   	fprintf(fp, "%hhu ", u[j+1]);
   	}
   fprintf(fp, "\n");
+  fclose(fp);
 }
 else {
     // Set the token's value if you are process 0
@@ -158,6 +159,7 @@ else {
 	fprintf(fp, "%hhu ", u[j+1]);
 	}
   fprintf(fp, "\n");
+  fclose(fp);
 }
 MPI_Send(&token, 1, MPI_INT, (p + 1) % P,
          0, MPI_COMM_WORLD);
