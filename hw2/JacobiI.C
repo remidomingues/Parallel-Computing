@@ -141,7 +141,7 @@ if (p != 0) {
   FILE *fp = fopen("data.txt","a");
   int j=0;
   for(j=0;j<I;j++){
-  	fprintf(fp, "%hhu ", u[j+1]);
+  	fprintf(fp, "%f ", u[j+1]);
   	}
   fprintf(fp, "\n");
   fclose(fp);
@@ -155,7 +155,7 @@ else {
     FILE *fp = fopen("data.txt","w");
     int j=0;	
     for(j=0;j<I;j++){
-	fprintf(fp, "%hhu ", u[j+1]);
+	fprintf(fp, "%f ", u[j+1]);
 	}
   fprintf(fp, "\n");
   fclose(fp);
