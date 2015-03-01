@@ -74,9 +74,9 @@ int main(int argc, char *argv[])
 double ff[I]; // why does he suggest that this be external? I DO not understand...
 double rr[I];
 int 	k;
-	for(k=1;k<I+1;k++){
-		ff[k] = exp(h*(k+p*I)-0.5);
-		rr[k] = sin(h*(k+p*I));
+	for(k=0;k<I;k++){
+		ff[k] = exp(h*(k+1+p*I)-0.5);
+		rr[k] = sin(h*(k+1+p*I));
 	}
 
 /* Jacobi iteration */
@@ -85,42 +85,29 @@ for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
 	if(p==0){ // First is red
 		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
-		printf("Process %d sent to process %d \n", p,  p +1);
 		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
-		printf("Process %d received from process %d \n", p,  p +1);
-
 		u[0] = 0;
 	}
 
 	else if(p < P-1 && p %2!=0){ //Black blocks
 		
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
-		printf("Process %d received from process %d \n", p,  p -1 );
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);	
-		printf("Process %d sent to process %d \n", p,  p -1);
 		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
-		printf("Process %d received from process %d \n", p,  p +1);
 		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD);
-		printf("Process %d sent to process %d \n", p,  p +1);
 	
 	}
 	else if(p % 2 == 0 && p != 0){ // RED
 		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
-	    printf("Process %d sent to process %d \n", p,  p +1 );
-		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
-	printf("Process %d received from process %d \n", p,  p +1);
+	   	MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
-		printf("Process %d sent to process %d \n", p,  p -1);
-	
 		MPI_Recv((&(u[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 	}
 	else{
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
-			printf("Process %d received from process %d \n", p,  p -1 );
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);
 		u[I-1]=0;
 	
-		
 	}
 	
 /* local iteration step */
@@ -150,8 +137,7 @@ unsigned int token;
 if (p != 0) {
     MPI_Recv(&token, 1, MPI_INT, p - 1, 0,
              MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    printf("Process %d received token %d from process %d\n",
-           p, token, p - 1);
+    printf("Process %d received token %d from process %d\n",p, token, p - 1);
   FILE *fp = fopen("data.txt","r+");
   int j=0;
   for(j=0;j<I;j++){
