@@ -83,21 +83,27 @@ int 	k;
     int step;
     for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
-	if(p % 2 == 0){ // red?  From slides, TO DO
-		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
-		//send(u[Ip_2],p+1);
-		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
-		//receive(u[Ip-1],p+1);
-		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	// undefined for first process?
-		//send(u[1],p-1);
+	if(p % 2 == 0 && p != 0){ // red?  From slides, TO DO
+		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD );
+	
+		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
+	
+		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
+	
 		MPI_Recv((&(u[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
-		//receive(u[0],p-1);
+	}
+	else if(p==0){
+		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD );
+		
+		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+
+		u[0] = 0;
 	}
 	else{
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);	
-		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
-		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD);	
+		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, (p+1) % P,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
+		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, (p+1) % P,1, MPI_COMM_WORLD);	
 		/* receive(u[0],p-1);
 		send(u[1],p-1);
 		receive(u[Ip-1],p+1);
@@ -144,13 +150,15 @@ if (p != 0) {
 } else {
     // Set the token's value if you are process 0
     token = 1;
+    printf("Process %d set token to %d \n",
+           p, token);
 }
 MPI_Send(&token, 1, MPI_INT, (p + 1) % P,
          0, MPI_COMM_WORLD);
 
 // Now process 0 can receive from the last process.
 if (p == 0) {
-    MPI_Recv(&token, 1, MPI_INT, p - 1, 0,
+    MPI_Recv(&token, 1, MPI_INT, P - 1, 0,
              MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     printf("Process %d received token %d from process %d\n",
            p, token, P - 1);
