@@ -84,20 +84,20 @@ int 	k;
     for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
 	if(p % 2 == 0){ // red?  From slides, TO DO
-		MPI_Send(u[I-2], 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
+		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
 		//send(u[Ip_2],p+1);
-		MPI_Recv(u[I-1], 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );	
+		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
 		//receive(u[Ip-1],p+1);
-		MPI_Send(u[1], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	// undefined for first process?
+		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	// undefined for first process?
 		//send(u[1],p-1);
-		MPI_Recv(u[0], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );
+		MPI_Recv((&(u[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 		//receive(u[0],p-1);
 	}
 	else{
-		MPI_Recv(u[0], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );
-		MPI_Send(u[1], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
-		MPI_Recv(u[I-1],1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD ); // undefined for last process? whatevah
-		MPI_Send(u[I-2], 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );	
+		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);	
+		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
+		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD);	
 		/* receive(u[0],p-1);
 		send(u[1],p-1);
 		receive(u[Ip-1],p+1);
