@@ -16,7 +16,7 @@
 #include "math.h"
 
 /* define problem to be solved */
-#define N 1000   /* number of inner grid points */
+#define N 100   /* number of inner grid points */
 #define SMX 2 // 1000000 /* number of iterations */
 
 /* implement coefficient functions */
@@ -81,33 +81,35 @@ int 	k;
 
 /* Jacobi iteration */
     int step;
-    for (step = 0; step < SMX; step++) {
+for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
-	if(p % 2 == 0 && p != 0){ // red?  From slides, TO DO
-		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD );
-	
-		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
+	if(p==0){
+		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
+		printf("BAJS \n");
+		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+
+		u[0] = 0;
+	}
+	else if(p % 2 == 0 && p != 0){ // red?  From slides, TO DO
+		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
+	    printf("Process %d sent to process %d \n", p,  p +1 );
+		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );	
 	
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
 	
 		MPI_Recv((&(u[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 	}
-	else if(p==0){
-		MPI_Send( (void *) (&(u[I-2])), 1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD );
-		
-		MPI_Recv( (&(u[I-1])),  1, MPI_DOUBLE, (p+1)%P,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
-
-		u[0] = 0;
+	else if(p ==P ){
+		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);
+		u[I-1]=0;
 	}
 	else{
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+		printf("Process %d received from process %d \n", p,  p -1 );
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);	
-		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, (p+1) % P,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
-		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, (p+1) % P,1, MPI_COMM_WORLD);	
-		/* receive(u[0],p-1);
-		send(u[1],p-1);
-		receive(u[Ip-1],p+1);
-		send(u[Ip-2],p+1);*/
+		MPI_Recv(( &(u[I-1]) ), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE); // undefined for last process? whatevah
+		MPI_Send((void *) (&(u[I-2])), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD);
 	}
 	
 /* local iteration step */
@@ -132,14 +134,6 @@ int 	k;
    5. process p sends the signal to process p+1 (if it exists).
 */
 
-/*
-
-int	right = (p + 1) % P;
-int	left = p - 1;
-    if (left < 0){
-        left = P - 1;
-    }
-*/    
 
 unsigned int token;
 if (p != 0) {
@@ -163,7 +157,7 @@ if (p == 0) {
     printf("Process %d received token %d from process %d\n",
            p, token, P - 1);
 }
-
+/*
 /* That's it */
     MPI_Finalize();
     exit(0);
