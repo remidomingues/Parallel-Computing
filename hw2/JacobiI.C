@@ -10,7 +10,8 @@
 
 /* Use MPI */
 #include "mpi.h"
-
+#include <stdio.h>
+#include <stdlib.h>
 //Include math.h ??? 
 #include "math.h"
 
@@ -37,59 +38,74 @@ extern double f(const double x);
 int main(int argc, char *argv[])
 {
 /* local variable */
-   double  L = N/P;
-   double  h = 1/N;
-   double R = N%P; //I will force this to be zero ie P will evenly divide N
+//I will force this to be zero ie P will evenly divide N
     //I = (N+P-p-1)/P;   // (number of local elements) HOW CAN THIS BE, IT IS NOT EVEN AN INTEGER, HANKE WHAT HAVE THOUST DONE?
-   double I = L; 
+   
    // double n = p*L+MIN(p,R)+i; //(global index for given (p,i) COMPLICATION WHY?
     
 /* Initialize MPI */
+    unsigned int P;
+    unsigned int p;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
+    int  L = N/P;
+    int I = L; 
+    double  h = 1/N;
+    double R = N%P;  
     
- 
     if (N < P) {
 	fprintf(stdout, "Too few discretization points...\n");
-	exit(1);
+	//exit(1) ; Compiler did not like this expression?
     }
 
 /* Compute local indices for data distribution, I DO NOT UNDERSTAND THIS (YET)*/
 //double localI = p*L unecessary?
-/* arrays */
+/* arrays */	
+    double * unew;
+    
     unew = (double *) malloc(I*sizeof(double));
 /* Note: The following allocation includes additionally:
    - boundary conditins are set to zero
    - the initial guess is set to zero */
+    double * u;  
     u = (double *) calloc(I+2, sizeof(double));
 
+double ff[I]; // why does he suggest that this be external? I DO not understand...
+double rr[I];
+int 	k;
+	for(k=1;k<I+1;k++){
+		ff[k] = exp(h*(k+p*I)-0.5);
+		rr[k] = sin(h*(k+p*I));
+	}
 
 /* Jacobi iteration */
+    int step;
     for (step = 0; step < SMX; step++) {
 /* RB communication of overlap */
 	if(p % 2 == 0){ // red?  From slides, TO DO
-		MPI_send(u[I-2], L, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
+		MPI_Send(u[I-2], 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );
 		//send(u[Ip_2],p+1);
-		MPI_recv(u[I-1], L, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );	
+		MPI_Recv(u[I-1], 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );	
 		//receive(u[Ip-1],p+1);
-		MPI_send(u[1], L, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	// undefined for first process?
+		MPI_Send(u[1], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	// undefined for first process?
 		//send(u[1],p-1);
-		MPI_recv(u[0], L, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );
+		MPI_Recv(u[0], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );
 		//receive(u[0],p-1);
+	}
 	else{
-		MPI_recv(u[0], L, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );
-		MPI_send(u[1], L, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
-		MPI_recv(u[I-1], L, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD ); // undefined for last process? whatevah
-		MPI_send(u[I-2], L, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );	
+		MPI_Recv(u[0], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );
+		MPI_Send(u[1], 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD );	
+		MPI_Recv(u[I-1],1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD ); // undefined for last process? whatevah
+		MPI_Send(u[I-2], 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD );	
 		/* receive(u[0],p-1);
 		send(u[1],p-1);
 		receive(u[Ip-1],p+1);
 		send(u[Ip-2],p+1);*/
 	}
-	}
-
+	
 /* local iteration step */
+	int i;
 	for(i=0; i<I;i++ ){
 	    unew[i] = (u[i]+u[i+2]-h*h*ff[i])/(2.0-h*h*rr[i]);
 	}
@@ -109,49 +125,36 @@ int main(int argc, char *argv[])
    4. Process p writes its portion to disk. (append to file)
    5. process p sends the signal to process p+1 (if it exists).
 */
-int MPI_wait(MPI_Request *request, MPI_Status *status)
- 
-int	right = (p + 1) % numprocs;
+
+/*
+
+int	right = (p + 1) % P;
 int	left = p - 1;
     if (left < 0){
-        left = numprocs - 1;
+        left = P - 1;
     }
+*/    
 
-if(p == 0) {
-	
-	printf("0 > Exporting data...\n");
-	FILE *fp = fopen("data.txt","w");
-	int j
-	for(j=0;j<I;j++){
-	fprintf(fp, "%hhu ", u[j+1]);
-	}
-	fprintf(fp, "\n");
-	MPI_send(1, 1, MPI_INT, right, 123, MPI_COMM_WORLD);
+unsigned int token;
+if (p != 0) {
+    MPI_Recv(&token, 1, MPI_INT, p - 1, 0,
+             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    printf("Process %d received token %d from process %d\n",
+           p, token, p - 1);
+} else {
+    // Set the token's value if you are process 0
+    token = 1;
 }
-else{
-	int ok;
-	MPI_Irecv(ok, 1, MPI_INT, left, 123, MPI_COMM_WORLD, &request);
-	MPI_Wait(&request, &status);
-	FILE *fp = fopen("data.txt","r+");
-	int j
-	for(j=0;j<I;j++){
-		fprintf(fp, "%hhu ", u[j+1]);
-	}
-	fprintf(fp, "\n");
-	MPI_send(1, 1, MPI_INT, right, 123, MPI_COMM_WORLD);
+MPI_Send(&token, 1, MPI_INT, (p + 1) % P,
+         0, MPI_COMM_WORLD);
+
+// Now process 0 can receive from the last process.
+if (p == 0) {
+    MPI_Recv(&token, 1, MPI_INT, p - 1, 0,
+             MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    printf("Process %d received token %d from process %d\n",
+           p, token, P - 1);
 }
-
-
-
-int i, j;
-for (j = 0; j < width; j++) {
-for (i = 0; i < height; i++)
-fprintf(fp, "%hhu ", rendering[i+j*height]);
-fprintf(fp, "\n");
-}
-fclose(fp);
-printf("0 > Export complete\n");
-
 
 /* That's it */
     MPI_Finalize();
