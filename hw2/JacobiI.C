@@ -75,9 +75,10 @@ double ff[I]; // why does he suggest that this be external? I DO not understand.
 double rr[I];
 int 	k;
 	for(k=0;k<I;k++){
-		ff[k] = exp(h*(k+1+p*I)-0.5);
+		ff[k] = exp(- pow( (h*(k+1+p*I)-0.5)/0.3,2) ) ;
 		rr[k] = sin(h*(k+1+p*I));
 	}
+printf("h=%f, k=%d, p=%d, I=%d, result=%f", h, k, p, I,  exp(- pow( (h*(k+1+p*I)-0.5)/0.3,2) ));
 
 /* Jacobi iteration */
     int step;
