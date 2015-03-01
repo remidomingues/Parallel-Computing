@@ -139,7 +139,7 @@ if (p != 0) {
     MPI_Recv(&token, 1, MPI_INT, p - 1, 0,
              MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     printf("Process %d received token %d from process %d\n",p, token, p - 1);
-  FILE *fp = fopen("data.txt","r+");
+  FILE *fp = fopen("data.txt","a");
   int j=0;
   for(j=0;j<I;j++){
   	fprintf(fp, "%hhu ", u[j+1]);
