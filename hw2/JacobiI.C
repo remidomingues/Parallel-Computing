@@ -6,7 +6,7 @@
  */
 
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+// #define MIN(a,b) ((a) < (b) ? (a) : (b)) Not needed 
 
 /* Use MPI */
 #include "mpi.h"
@@ -16,7 +16,7 @@
 
 /* define problem to be solved */
 #define N 1000   /* number of inner grid points */
-#define SMX 1000000 /* number of iterations */
+#define SMX 2 // 1000000 /* number of iterations */
 
 /* implement coefficient functions */
 extern double r(const double x);
@@ -111,8 +111,8 @@ int main(int argc, char *argv[])
 */
 int MPI_wait(MPI_Request *request, MPI_Status *status)
  
-    right = (p + 1) % numprocs;
-    left = p - 1;
+int	right = (p + 1) % numprocs;
+int	left = p - 1;
     if (left < 0){
         left = numprocs - 1;
     }
