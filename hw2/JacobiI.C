@@ -109,6 +109,49 @@ int main(int argc, char *argv[])
    4. Process p writes its portion to disk. (append to file)
    5. process p sends the signal to process p+1 (if it exists).
 */
+int MPI_wait(MPI_Request *request, MPI_Status *status)
+ 
+    right = (p + 1) % numprocs;
+    left = p - 1;
+    if (left < 0){
+        left = numprocs - 1;
+    }
+
+if(p == 0) {
+	
+	printf("0 > Exporting data...\n");
+	FILE *fp = fopen("data.txt","w");
+	int j
+	for(j=0;j<I;j++){
+	fprintf(fp, "%hhu ", u[j+1]);
+	}
+	fprintf(fp, "\n");
+	MPI_send(1, 1, MPI_INT, right, 123, MPI_COMM_WORLD);
+}
+else{
+	int ok;
+	MPI_Irecv(ok, 1, MPI_INT, left, 123, MPI_COMM_WORLD, &request);
+	MPI_Wait(&request, &status);
+	FILE *fp = fopen("data.txt","r+");
+	int j
+	for(j=0;j<I;j++){
+		fprintf(fp, "%hhu ", u[j+1]);
+	}
+	fprintf(fp, "\n");
+	MPI_send(1, 1, MPI_INT, right, 123, MPI_COMM_WORLD);
+}
+
+
+
+int i, j;
+for (j = 0; j < width; j++) {
+for (i = 0; i < height; i++)
+fprintf(fp, "%hhu ", rendering[i+j*height]);
+fprintf(fp, "\n");
+}
+fclose(fp);
+printf("0 > Export complete\n");
+
 
 /* That's it */
     MPI_Finalize();
