@@ -99,7 +99,7 @@ for (step = 0; step < SMX; step++) {
 	
 		MPI_Recv((&(u[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 	}
-	else if(p < P ){
+	else if(p < P-1 ){
 		
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
 		printf("Process %d received from process %d \n", p,  p -1 );
@@ -110,6 +110,7 @@ for (step = 0; step < SMX; step++) {
 	}
 	else{
 		MPI_Recv(( &(u[0])),  1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD,MPI_STATUS_IGNORE );
+			printf("Process %d received from process %d \n", p,  p -1 );
 		MPI_Send((void *) (&(u[1])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD);
 		u[I-1]=0;
 	
