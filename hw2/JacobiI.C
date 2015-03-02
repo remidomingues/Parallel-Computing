@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &p);
     int  L = N/P;
     int I = L; 
-    double   h = 1.0/(N+1);
+    double   h = 1.0/(N+1); // We want N inner points
     double R = N%P;  
     
     if (N < P) {
