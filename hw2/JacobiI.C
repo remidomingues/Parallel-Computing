@@ -40,8 +40,8 @@ double ff[I];
 double rr[I];
 int 	k;
 	for(k=0;k<I;k++){
-		ff[k] = -1/pow(h*(k+1+p*I),1.5); //exp(- pow( (h*(k+1+p*I)-0.5)/0.3,2) ) ;
-		rr[k] = pow(h*(k+1+p*I),3);//sin(h*(k+1+p*I));
+		ff[k] = -1/pow(h*(k+1+p*I),1.5);
+		rr[k] = pow(h*(k+1+p*I),3);
 	}
 /* Jacobi iteration */
     int step;
