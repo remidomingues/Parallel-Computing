@@ -2,6 +2,7 @@
 #include "mpi.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 double cmpfunc (const void * a, const void * b)
 {
@@ -12,16 +13,18 @@ double cmpfunc (const void * a, const void * b)
 
 int main(int argc, char **argv)
 {
-  
+unsigned int P;
+unsigned int myrank;
+
 MPI_Init(&argc, &argv);
 MPI_Comm_size(MPI_COMM_WORLD, &P);
 MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
 /* Find problem size N from command line */ //Remi could you please do this? shouldn't take you more than a second 
-N = 10;
+int N = 10;
 
-if (argc < 2) error_exit(“No size N given”);
-N = atoi(argv[1]);
+//if (argc < 2) error_exit(“No size N given”);
+//N = atoi(argv[1]);
 
 /* local size. Modify if P does not divide N */
 
@@ -35,6 +38,8 @@ if( (R-myrank)>0 ){
 /* random number generator initialization */
 srandom(myrank+1);
 /* data generation */
+double x[I];
+int i;
 for (i = 0; i < I; i++){
   x[i] = ((double) random())/(RAND_MAX+1);
 }
@@ -46,8 +51,9 @@ qsort(x, I, sizeof(double), cmpfunc);
 
 bool evenprocess = (myrank%2 == 0);
 bool evenphase = true;
+int step;
 
-for(int step=0; step<P;step++){  //As many steps as processors, though I'm not to sure about this...
+for(step=0; step<P;step++){  //As many steps as processors, though I'm not to sure about this...
 
   bool done = false;
 
@@ -59,7 +65,7 @@ for(int step=0; step<P;step++){  //As many steps as processors, though I'm not t
       //Now we need to check if this element has a place on this processor (is it smaller than the some element?)  
         bool b = false;
         int j = k; 
-        temp = X;
+        double temp = X;
         
         while( b == false && j<I-1){ 
           if(X<x[j]){
@@ -89,7 +95,7 @@ for(int step=0; step<P;step++){  //As many steps as processors, though I'm not t
         while( issorted == false ){
           issorted = true
           if(x[j+1]>x[j]){
-            temp = x[j];
+            double temp = x[j];
             x[j] = x[j+1];
             x[j+1] = temp;
             issorted == false;
