@@ -2,6 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void display(double* array, int length, int rank) {
+    int i;
+    for(i = 0; i < length; ++i) {
+        printf("%d > %.2f ", rank, array[i]);
+    }
+    printf("\n");
+}
+
 int compare(const void * a, const void * b)
 {
   return ( *(double*)a - *(double*)b );
@@ -54,7 +62,7 @@ int main(int argc, char **argv)
 
     /* Find problem size N from command line */
     if (argc < 2) {
-        printf("No size N given");
+        printf("No size N given\n");
         exit(-1);
     }
     int N = atoi(argv[1]);
@@ -74,8 +82,14 @@ int main(int argc, char **argv)
     unsigned int evenphase = 1;
 
     for(step = 0; step < N-1; ++step) {
+        printf("%d > Internal sort:", rank);
+        display(x, I*P, rank);
+
         // Efficient sequential sort in N log(N)
         qsort(x, I, sizeof(double), compare);
+
+        printf("%d > become:", rank);
+        display(x, I*P, rank);
 
         if((evenphase == 1 && evenprocess == 1) || (evenphase == 0 && evenprocess == 0)) {
             if(rank < N-1) {
@@ -100,8 +114,6 @@ int main(int argc, char **argv)
 
     //TODO REMOVE
     if(rank == 0) {
-        for(i = 0; i < P*I; ++i) {
-            printf("%.2f ", data[i]);
-        }
+        display(data, I*P, rank);
     }
 }
