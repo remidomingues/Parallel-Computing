@@ -18,6 +18,7 @@ MPI_Comm_size(MPI_COMM_WORLD, &P);
 MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
 /* Find problem size N from command line */ //Remi could you please do this? shouldn't take you more than a second 
+N = 10;
 
 if (argc < 2) error_exit(“No size N given”);
 N = atoi(argv[1]);
@@ -52,7 +53,7 @@ for(int step=0; step<P;step++){  //As many steps as processors, though I'm not t
 
   while ( done == false) {
 
-    if( (evenphase  && evenprocess )  xor ( ~evenphase  && ~evenprocess ) ){
+    if( (evenphase  && evenprocess  )  xor ( !evenphase  && !evenprocess ) && myrank< P-1 ){
       
       MPI_Recv(&X, 1, MPI_DOUBLE, p + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE); //Receives lowest from above neighbour
       //Now we need to check if this element has a place on this processor (is it smaller than the some element?)  
@@ -73,7 +74,7 @@ for(int step=0; step<P;step++){  //As many steps as processors, though I'm not t
         
         MPI_Send( (void *) ( &(temp) ), 1, MPI_DOUBLE, p+1,1, MPI_COMM_WORLD);
     
-    else{
+    else if(myrank>0){
       MPI_Send((void *) (&(x[0])), 1, MPI_DOUBLE, p-1,1, MPI_COMM_WORLD); //Always send the smallest element
       MPI_Recv(&X, 1, MPI_DOUBLE, p - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       if(x[0] == X ){
@@ -100,7 +101,7 @@ for(int step=0; step<P;step++){  //As many steps as processors, though I'm not t
       }
     }
     
-   evenphase = ~evenphase;
+   evenphase != evenphase;
     
 }
   
