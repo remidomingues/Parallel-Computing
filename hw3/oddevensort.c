@@ -37,7 +37,6 @@ double* merge_split(double* array, double* tmp, int length, int length2, int hig
     }
 
     for(i = start; i != end; i += step) {
-        printf("%.2f, %.2f\n", array[idx], tmp[tmp_idx]);
         if((array[idx] < tmp[tmp_idx] && higher == 0) || (array[idx] > tmp[tmp_idx] && higher == 1)) {
             result[i] = array[idx];
             idx += step;
@@ -63,19 +62,21 @@ double* exchange(double* array, int length, int length2, int rank, int sendFirst
         MPI_Send(array, length, MPI_DOUBLE, rank, 1, MPI_COMM_WORLD);
         result = merge_split(array, tmp, length, length2, 1);
     }
-/*
-    printf("Mylist = ");
-    display(array, length, -1);
-    printf("his list = ");
-    display(tmp, length2, rank);
-
-    printf("final list = ");
-    display(result, length, -1);
 
     free(tmp);
     free(array);
-*/
+
     return result;
+}
+
+int getRemoteLength(rank, remoteRank, length, R) {
+    if(R != 0 && (((R - rank <= 0) && (R - remoteRank > 0)) || ((R - rank > 0) && (R - remoteRank <= 0)))) {
+        if(rank > remoteRank) {
+            return length+1;
+        }
+        return length-1;
+    }
+    return length;
 }
 
 int main(int argc, char **argv)
@@ -111,63 +112,45 @@ int main(int argc, char **argv)
     for (i = 0; i < I; i++) {
         x[i] = ((double)random())/RAND_MAX;
     }
+    printf("%d > Local data at step %d is: ", rank, 0);
+    display(x, I, rank);
 
     // Odd-even transposition sort
-    int evenprocess = (i+1) % 2;
-    int evenphase = 1;
-
     for(step = 0; step < P; ++step) {
-        printf("%d > a\n", rank);
-        printf("%d > Internal sort:", rank);
-        display(x, I, rank);
-
         // Efficient sequential sort in N log(N)
         qsort(x, I, sizeof(double), compare);
-
-        printf("%d > become:", rank);
-        display(x, I, rank);
-
         // Even
         if(step % 2 == 0) {
-            if(rank % 2 == 0 && rank < P-1) {
-                // Exchange with the next processor
-                I2 = I;
-                if(R != 0 && ((R - rank <= 0) != (R - rank + 1 <= 0))) {
-                    I2 = I - 1;
+            if(rank % 2 == 0) {
+                if(rank < P-1) {
+                    // Exchange with the next processor
+                    I2 = getRemoteLength(rank, rank+1, I, R);
+                    //printf(">>> %d > Step %d, echange with %d\n", rank, step, rank+1);
+                    x = exchange(x, I, I2, rank+1, 1);
                 }
-                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank+1);
-                x = exchange(x, I, I2, rank+1, 1);
             } else if(rank > 0) {
                 // Exchange with the previous processor
-                I2 = I;
-                if(R != 0 && ((R - rank <= 0) != (R - rank - 1 <= 0))) {
-                    I2 = I + 1;
-                }
-                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank-1);
+                I2 = getRemoteLength(rank, rank-1, I, R);
+                //printf(">>> %d > Step %d, echange with %d\n", rank, step, rank-1);
                 x = exchange(x, I, I2, rank-1, 0);
             }
         // Odd
         } else {
-            if(rank % 2 != 0 && rank < P-1) {
-                // Exchange with the next processor
-                I2 = I;
-                if(R != 0 && ((R - rank <= 0) != (R - rank + 1 <= 0))) {
-                    I2 = I - 1;
+            if(rank % 2 != 0) {
+                if(rank < P-1) {
+                    // Exchange with the next processor
+                    I2 = getRemoteLength(rank, rank+1, I, R);
+                    //printf(">>> %d > Step %d, echange with %d\n", rank, step, rank+1);
+                    x = exchange(x, I, I2, rank+1, 1);
                 }
-                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank+1);
-                x = exchange(x, I, I2, rank+1, 1);
             } else if(rank > 0) {
                 // Exchange with the previous processor
-                I2 = I;
-                if(R != 0 && ((R - rank <= 0) != (R - rank - 1 <= 0))) {
-                    I2 = I + 1;
-                }
-                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank-1);
+                I2 = getRemoteLength(rank, rank-1, I, R);
+                //printf(">>> %d > Step %d, echange with %d\n", rank, step, rank-1);
                 x = exchange(x, I, I2, rank-1, 0);
             }
         }
     }
-    printf("%d > c\n", rank);
 
     // Data gathering
     double** data;
@@ -176,30 +159,32 @@ int main(int argc, char **argv)
     }
 
     if(rank == 0) {
+        data[0] = x;
         for(i = 1; i < P; ++i) {
             if(R != 0 && R - i <= 0) {
                 data[i] = (double *)malloc((I-1) * sizeof(double));
                 MPI_Recv(data[i], I-1, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-                printf("%d > Data received from to %d\n", rank, i);
+                printf("%d > Data received from to %d: ", rank, i);
                 display(data[i], I-1, rank);
             } else {
                 data[i] = (double *)malloc(I * sizeof(double));
                 MPI_Recv(data[i], I, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-                printf("%d > Data received from to %d\n", rank, i);
+                printf("%d > Data received from to %d: ", rank, i);
                 display(data[i], I, rank);
             }
         }
     } else {
-        printf("%d > Sending final data to %d\n", rank, 0);
-        display(x, I, rank);
+        // printf("%d > Sending final data to %d: ", rank, 0);
+        // display(x, I, rank);
         MPI_Send(x, I, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
+        free(x);
     }
 
     //Final display
     if(rank == 0) {
-        printf("%d > Final result\n", 0);
+        printf("%d > Final result: ", 0);
         for(i = 0; i < P; ++i) {
             if(R != 0 && R - i <= 0) {
                 step = I - 1;
@@ -208,9 +193,20 @@ int main(int argc, char **argv)
             }
 
             for(j = 0; j < step; j++) {
-                printf("%.2f ", data[i][j]);
+                printf("%.3f ", data[i][j]);
             }
         }
         printf("\n");
     }
+
+    //Free memory
+    if(rank == 0) {
+        for(i = 0; i < P; ++i) {
+            free(data[i]);
+        }
+        free(data);
+    }
+
+    MPI_Finalize();
+    return 0;
 }
