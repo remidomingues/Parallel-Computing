@@ -18,21 +18,36 @@ int compare(const void *x, const void *y)
   return 0;
 }
 
-double* merge_split(double* array, double* tmp, int length, int higher) {
-    int i;
-    int idx = 0;
-    int tmp_idx = 0;
+double* merge_split(double* array, double* tmp, int length, int length2, int higher) {
+    int i, start, end, step, idx, tmp_idx;
     double* result = (double*)malloc(length * sizeof(double));
 
-    for(i = 0; i < length; ++i) {
+    if(higher == 0) {
+        start = 0;
+        end = length;
+        step = 1;
+        idx = 0;
+        tmp_idx = 0;
+    } else {
+        start = length-1;
+        end = -1;
+        step = -1;
+        idx = length-1;
+        tmp_idx = length2-1;
+    }
+
+    for(i = start; i != end; i += step) {
+        printf("%.2f, %.2f\n", array[idx], tmp[tmp_idx]);
         if((array[idx] < tmp[tmp_idx] && higher == 0) || (array[idx] > tmp[tmp_idx] && higher == 1)) {
             result[i] = array[idx];
-            ++idx;
+            idx += step;
         } else {
             result[i] = tmp[tmp_idx];
-            ++tmp_idx;
+            tmp_idx += step;
         }
     }
+
+    return result;
 }
 
 double* exchange(double* array, int length, int length2, int rank, int sendFirst) {
@@ -42,22 +57,32 @@ double* exchange(double* array, int length, int length2, int rank, int sendFirst
     if(sendFirst == 1) {
         MPI_Send(array, length, MPI_DOUBLE, rank, 1, MPI_COMM_WORLD);
         MPI_Recv(tmp, length2, MPI_DOUBLE, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        result = merge_split(array, tmp, length, 0);
+        result = merge_split(array, tmp, length, length2, 0);
     } else {
         MPI_Recv(tmp, length2, MPI_DOUBLE, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Send(array, length, MPI_DOUBLE, rank, 1, MPI_COMM_WORLD);
-        result = merge_split(array, tmp, length, 1);
+        result = merge_split(array, tmp, length, length2, 1);
     }
+/*
+    printf("Mylist = ");
+    display(array, length, -1);
+    printf("his list = ");
+    display(tmp, length2, rank);
+
+    printf("final list = ");
+    display(result, length, -1);
 
     free(tmp);
     free(array);
+*/
+    return result;
 }
 
 int main(int argc, char **argv)
 {
     int i, j, step, I2;
-    unsigned int P;
-    unsigned int rank;
+    int P;
+    int rank;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
@@ -65,14 +90,16 @@ int main(int argc, char **argv)
 
     /* Find problem size N from command line */
     if (argc < 2) {
-        printf("No size N given\n");
-        exit(-1);
+        if(rank == 0) {
+            printf("No size N given\n");
+        }
+        return;
     }
     int N = atoi(argv[1]);
     /* local size */
     int R = N%P;
     int I = (N-R)/P; //Number of local elements common to all
-    if(R - rank > 0) {
+    if((R-rank) > 0) {
         ++I;
     }
 
@@ -86,39 +113,61 @@ int main(int argc, char **argv)
     }
 
     // Odd-even transposition sort
-    unsigned int evenprocess = (i+1) % 2;
-    unsigned int evenphase = 1;
+    int evenprocess = (i+1) % 2;
+    int evenphase = 1;
 
     for(step = 0; step < P; ++step) {
+        printf("%d > a\n", rank);
         printf("%d > Internal sort:", rank);
-        display(x, I*P, rank);
+        display(x, I, rank);
 
         // Efficient sequential sort in N log(N)
         qsort(x, I, sizeof(double), compare);
 
         printf("%d > become:", rank);
-        display(x, I*P, rank);
+        display(x, I, rank);
 
-        if((evenphase == 1 && evenprocess == 1) || (evenphase == 0 && evenprocess == 0)) {
-            if(rank < N-1) {
+        // Even
+        if(step % 2 == 0) {
+            if(rank % 2 == 0 && rank < P-1) {
+                // Exchange with the next processor
                 I2 = I;
                 if(R != 0 && ((R - rank <= 0) != (R - rank + 1 <= 0))) {
                     I2 = I - 1;
                 }
-                exchange(x, I, I2, rank+1, 1);
-            }
-        } else {
-            if(rank > 0) {
+                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank+1);
+                x = exchange(x, I, I2, rank+1, 1);
+            } else if(rank > 0) {
+                // Exchange with the previous processor
                 I2 = I;
                 if(R != 0 && ((R - rank <= 0) != (R - rank - 1 <= 0))) {
                     I2 = I + 1;
                 }
-                exchange(x, I, I2, rank-1, 0);
+                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank-1);
+                x = exchange(x, I, I2, rank-1, 0);
+            }
+        // Odd
+        } else {
+            if(rank % 2 != 0 && rank < P-1) {
+                // Exchange with the next processor
+                I2 = I;
+                if(R != 0 && ((R - rank <= 0) != (R - rank + 1 <= 0))) {
+                    I2 = I - 1;
+                }
+                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank+1);
+                x = exchange(x, I, I2, rank+1, 1);
+            } else if(rank > 0) {
+                // Exchange with the previous processor
+                I2 = I;
+                if(R != 0 && ((R - rank <= 0) != (R - rank - 1 <= 0))) {
+                    I2 = I + 1;
+                }
+                printf(">>> %d > Step %d, echange with %d\n", rank, step, rank-1);
+                x = exchange(x, I, I2, rank-1, 0);
             }
         }
-
-        evenphase = (evenphase + 1) % 2;
     }
+    printf("%d > c\n", rank);
 
     // Data gathering
     double** data;
@@ -131,12 +180,20 @@ int main(int argc, char **argv)
             if(R != 0 && R - i <= 0) {
                 data[i] = (double *)malloc((I-1) * sizeof(double));
                 MPI_Recv(data[i], I-1, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                printf("%d > Data received from to %d\n", rank, i);
+                display(data[i], I-1, rank);
             } else {
                 data[i] = (double *)malloc(I * sizeof(double));
                 MPI_Recv(data[i], I, MPI_DOUBLE, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                printf("%d > Data received from to %d\n", rank, i);
+                display(data[i], I, rank);
             }
         }
     } else {
+        printf("%d > Sending final data to %d\n", rank, 0);
+        display(x, I, rank);
         MPI_Send(x, I, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
     }
 
