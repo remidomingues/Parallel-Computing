@@ -84,6 +84,9 @@ int main(int argc, char **argv)
     int i, j, step, I2;
     int P;
     int rank;
+    clock_t begin, end;
+    double time_spent;
+    begin = clock();
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
@@ -205,6 +208,9 @@ int main(int argc, char **argv)
             free(data[i]);
         }
         free(data);
+        end = clock();
+        time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        printf("0 > ELAPSED TIME: %.3f seconds", time_spent);
     }
 
     MPI_Finalize();
