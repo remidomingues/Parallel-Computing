@@ -11,26 +11,28 @@ typedef enum {UP, RIGHT, LEFT, DOWN} direction_t;
 int WATER_HEIGHT = -1;
 int RANDOM_FACTOR = 10;
 float FACTOR_MULTIPLIER = 0.5;
-int MALTAB_EXPORT = 1;
-int TERRAIN_WIDTH;
-int TERRAIN_HEIGHT;
+int MALTAB_EXPORT = 0;
+int FINAL_TERRAIN_WIDTH;
+int FINAL_TERRAIN_HEIGHT;
+int INIT_TERRAIN_WIDTH;
+int INIT_TERRAIN_HEIGHT;
 
 /* Initialize the values P and Q in order to distribute
  * N processes on a P*Q grid */
 void getProcessesDistribution(int N, int *P, int *Q) {
     int i;
 
-    *P = 1;
-    *Q = N;
+    *Q = 1;
+    *P = N;
 
     for(i = 2; i < N; ++i) {
-        if(i >= *Q) {
+        if(i >= *P) {
             break;
         }
 
         if(N % i == 0) {
-            *P = i;
-            *Q = N / i;
+            *Q = i;
+            *P = N / i;
         }
     }
 }
@@ -50,13 +52,13 @@ void displayMatrix(float ** data, int height, int width, int scalingFactor) {
 
 /* Return the process rank given its coordinates on the grid */
 int coordsToRank(int p, int q, int P) {
-    return p * P + q;
+    return q * P + p;
 }
 
 /* Initialize the process' grids coordinates given its rank */
 void rankToCoords(int r, int P, int * p, int * q) {
-    *p = r / P;
-    *q = r % P;
+    *q = r / P;
+    *p = r % P;
 }
 
 /* Return 1 if the grid coordinates are inside the grid boundaries
@@ -154,15 +156,12 @@ float ** readData(char * inputFile, int * height, int * width, int * initHeight,
 }
 
 /* Return the data length (height or width) for a given process
- * according to the total length dedicated to every process */
+ * according to the total length dedicated to every process
+ * rank is the coordinate p or q */
 int getDataLength(int rank, int length, int N) {
-    int size = length / N;
+    int size = (length + N - 1) / N;
 
-    if(rank < length % N) {
-        ++size;
-    }
-
-    if(rank != N - 1) {
+    if(rank < (length + N - 1) % N) {
         ++size;
     }
 
@@ -171,36 +170,51 @@ int getDataLength(int rank, int length, int N) {
 
 /* Read the initial matrix from an input file then send to each process the part it has to compute */
 float ** importAndScatterData(int rank, char * inputFile, int * height, int * width, int * initWidth, int * initHeight, int iterations, int P, int Q) {
-    int r, i, j, k, realI, currentI = 0, currentJ = 0, tmpLength = -1, N = P*Q, p, q, terrainWidth, terrainHeight;
+    int r, i, j, k, realI, currentI = 0, currentJ = 0, tmpLength = -1, N = P*Q, p = 0, q = 0;
     int scalingFactor = virtualToRealCoordsFactor(0, iterations);
     float ** data, * tmp;
     int * dataSize = (int *) malloc(2 * sizeof(int));
 
     if(rank == 0) {
         // Read data from file
-        data = readData(inputFile, &TERRAIN_HEIGHT, &TERRAIN_WIDTH, &terrainHeight, &terrainWidth, iterations);
-        *initWidth = getDataLength(rank, terrainWidth, P);
-        *initHeight = getDataLength(rank, terrainHeight, Q);
+        data = readData(inputFile, &FINAL_TERRAIN_HEIGHT, &FINAL_TERRAIN_WIDTH, &INIT_TERRAIN_HEIGHT, &INIT_TERRAIN_WIDTH, iterations);
+        if(P > INIT_TERRAIN_WIDTH - 1 || Q > INIT_TERRAIN_HEIGHT - 1) {
+            printf("Invalid number of processes. Input cannot fit the number of processes. Try another process distribution\n");
+            exit(-1);
+        }
+        *initWidth = getDataLength(0, INIT_TERRAIN_WIDTH, P);
+        *initHeight = getDataLength(0, INIT_TERRAIN_HEIGHT, Q);
         *height = initialToFinalLength(*initHeight, iterations);
         *width = initialToFinalLength(*initWidth, iterations);
+        dataSize[0] = *initWidth;
+        dataSize[1] = *initHeight;
+        printf("%d is %dx%d\n", 0, dataSize[0], dataSize[1]);
 
         printf("0 > Scattering data\n");
 
         // Send data to each process
         for(r = 1; r < N; ++r) {
+            // Update matrix indexes
+            currentJ += dataSize[0] - 1;
+            if(p == P - 1) {
+                currentI += dataSize[1] - 1;
+                currentJ = 0;
+            }
+
             rankToCoords(r, P, &p, &q);
 
             // Send data size
-            dataSize[0] = getDataLength(r, terrainWidth, P);
-            dataSize[1] = getDataLength(r, terrainHeight, Q);
+            dataSize[0] = getDataLength(p, INIT_TERRAIN_WIDTH, P);
+            dataSize[1] = getDataLength(q, INIT_TERRAIN_HEIGHT, Q);
             MPI_Send(dataSize, 2, MPI_INT, r, 1, MPI_COMM_WORLD);
+            printf("%d is %dx%d\n", r, dataSize[0], dataSize[1]);
 
             //Send data
             if(tmpLength != dataSize[0] * dataSize[1]) {
-                tmpLength = dataSize[0] * dataSize[1];
                 if(tmpLength != -1) {
                     free(tmp);
                 }
+                tmpLength = dataSize[0] * dataSize[1];
                 tmp = (float *) malloc (tmpLength * sizeof(float));
             }
 
@@ -211,19 +225,13 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
             }
 
             MPI_Send(tmp, tmpLength, MPI_FLOAT, r, 1, MPI_COMM_WORLD);
-
-            currentJ += dataSize[0] - 1;
-            if(q == Q - 1) {
-                currentI += dataSize[1] - 1;
-                currentJ = 0;
-            }
         }
 
     } else {
         // Receive data size
         MPI_Recv(dataSize, 2, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        *initHeight = dataSize[0];
-        *initWidth = dataSize[1];
+        *initWidth = dataSize[0];
+        *initHeight = dataSize[1];
         *height = initialToFinalLength(*initHeight, iterations);
         *width = initialToFinalLength(*initWidth, iterations);
 
@@ -235,7 +243,7 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
         // Initialize data matrix
         data = (float **) malloc ((*height) * sizeof(float *));
         for(i = 0; i < *height; ++i) {
-            data[i] = (float *) malloc ((*width) * sizeof(float));
+            data[i] = (float *) calloc (*width, sizeof(float));
         }
 
         // Fill data matrix
@@ -350,10 +358,6 @@ void directedExchangeSquares(float ** data, int height, int width, int scalingFa
     float * squares, * remoteSquares;
     int length = height;
 
-    if(p == 0 && q == 0) {
-        printf("0 > Exchanging squares\n");
-    }
-
     if(direction == UP || direction == DOWN) {
         length = width;
     }
@@ -407,14 +411,10 @@ void diamondSquare(float ** data, int width, int height, int iterations, int p, 
     finalHeight = initialToFinalLength(height, iterations);
     finalWidth = initialToFinalLength(width, iterations);
 
-    printf("Initial matrix\n");
-    displayMatrix(data, finalHeight, finalWidth, 1);
-    printf("\n");
-
     // Iterations
     for(k = 0; k < iterations; ++k) {
         if(p == 0 && q == 0) {
-            printf("0 > Iteration %d\n", k);
+            printf("0 > Iteration %d\n", k+1);
         }
         scalingFactor = virtualToRealCoordsFactor(k+1, iterations);
         width = 2 * width - 1;
@@ -431,10 +431,6 @@ void diamondSquare(float ** data, int width, int height, int iterations, int p, 
             }
         }
 
-        printf("Square pass\n");
-        displayMatrix(data, finalHeight, finalWidth, 1);
-        printf("\n");
-
         // Diamond pass - Diamonds on the side are not computed
         start = 1;
         for(i = 1; i < height - 1; ++i) {
@@ -447,15 +443,8 @@ void diamondSquare(float ** data, int width, int height, int iterations, int p, 
             start = (start + 1) % 2;
         }
 
-        printf("Diamond pass\n");
-        displayMatrix(data, finalHeight, finalWidth, 1);
-        printf("\n");
-
         // Data exchange - Only the squares on the side and the random factors are exchanged
         exchangeSquares(data, height, width, scalingFactor, p, q, P, Q);
-        printf("Diamond update\n");
-        displayMatrix(data, finalHeight, finalWidth, 1);
-        printf("\n");
 
         // Random factor attenuation
         RANDOM_FACTOR *= FACTOR_MULTIPLIER;
@@ -476,16 +465,29 @@ void pourWater(float ** data, int height, int width) {
 }
 
 /* Gather final data from every process then complete the data matrix for final result */
-void gatherData(float ** data, int height, int width, int rank, int P, int Q) {
+void gatherData(float ** data, int height, int width, int rank, int P, int Q, int iterations) {
     float * tmp;
     int i, j, k = 0, r, remoteHeight, remoteWidth, tmpLength = -1, p, q, currentI = 0, currentJ = 0;
 
     if(rank == 0) {
         printf("0 > Gathering data\n");
+
+        remoteHeight = initialToFinalLength(getDataLength(0, INIT_TERRAIN_HEIGHT, Q), iterations);
+        remoteWidth = initialToFinalLength(getDataLength(0, INIT_TERRAIN_WIDTH, P), iterations);
+
         for(r = 1; r < P*Q; ++r) {
+            // Update matrix filling progression
+            currentJ += remoteWidth - 1;
+            if(p == P - 1) {
+                currentI += remoteHeight - 1;
+                currentJ = 0;
+            }
+
+            rankToCoords(r, P, &p, &q);
+
             // Receive data
-            remoteHeight = getDataLength(r, TERRAIN_HEIGHT, Q);
-            remoteWidth = getDataLength(r, TERRAIN_WIDTH, P);
+            remoteHeight = initialToFinalLength(getDataLength(q, INIT_TERRAIN_HEIGHT, Q), iterations);
+            remoteWidth = initialToFinalLength(getDataLength(p, INIT_TERRAIN_WIDTH, P), iterations);
             if(tmpLength != remoteHeight * remoteWidth) {
                 if(tmpLength != -1) {
                     free(tmp);
@@ -501,13 +503,6 @@ void gatherData(float ** data, int height, int width, int rank, int P, int Q) {
                 for(j = currentJ; j < currentJ + remoteWidth; ++j, ++k) {
                     data[i][j] = tmp[k];
                 }
-            }
-
-            // Update matrix filling progression
-            currentJ += remoteWidth - 1;
-            if(q == Q - 1) {
-                currentI += remoteHeight - 1;
-                currentJ = 0;
             }
         }
 
@@ -599,10 +594,10 @@ int main(int argc, char **argv)
     data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q);
     diamondSquare(data, initWidth, initHeight, iterations, p, q, P, Q);
     pourWater(data, height, width);
-    gatherData(data, height, width, rank, P, Q);
+    gatherData(data, height, width, rank, P, Q, iterations);
 
     if(rank == 0) {
-        exportData(data, TERRAIN_HEIGHT, TERRAIN_WIDTH, outputFile);
+        exportData(data, FINAL_TERRAIN_HEIGHT, FINAL_TERRAIN_WIDTH, outputFile);
     }
 
     // Release memory
