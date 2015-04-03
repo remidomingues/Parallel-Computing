@@ -8,10 +8,10 @@
 typedef enum {UP, RIGHT, LEFT, DOWN} direction_t;
 
 /* Default values */
-WATER_HEIGHT = -1;
-RANDOM_FACTOR = 10;
-FACTOR_MULTIPLIER = 0.5;
-MALTAB_EXPORT = 0;
+int WATER_HEIGHT = -1;
+int RANDOM_FACTOR = 10;
+float FACTOR_MULTIPLIER = 0.5;
+int MALTAB_EXPORT = 0;
 
 /* Initialize the values P and Q in order to distribute
  * N processes on a P*Q grid */
@@ -22,7 +22,7 @@ void getProcessesDistribution(int N, int *P, int *Q) {
     *Q = N;
 
     for(i = 2; i < N; ++i) {
-        if(i >= m2) {
+        if(i >= *Q) {
             break;
         }
 
@@ -67,28 +67,31 @@ int virtualToRealCoordsFactor(int iter, int iterations) {
 }
 
 /* Parse the command line arguments and raise an error if an invalid input is given */
-void parseCommandLine(int argc, char **argv, char ** inputFile, ** outputFile, int * iterations) {
+void parseCommandLine(int argc, char **argv, char ** inputFile, char ** outputFile, int * iterations) {
     if (argc < 4) {
-        printf("Invalid number of arguments (%d), %d expected.\n" +
-            "Command line template is \"mpirun -np N ./BINARY_PATH FILE_PATH.in " +
-            "FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]\"")
+        printf("Invalid number of arguments (%d), %d expected at least.\n", argc-1, 3);
+        printf("Command line template is \"mpirun -np N ./BINARY_PATH FILE_PATH.in FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]\"\n");
         exit(-1);
     }
 
     *inputFile = argv[1];
     *outputFile = argv[2];
-    *iterations = atoi(argv[3])
+    *iterations = atoi(argv[3]);
+
+    if(*iterations) < 0 {
+        printf("Invalid number of iterations (%d). Iterations must be higher or equal than 0", iterations)
+    }
 
     if(argc > 4) {
-        WATER_HEIGHT = atoi(argv[4])
+        WATER_HEIGHT = atoi(argv[4]);
     }
 
     if(argc > 5) {
-        RANDOM_FACTOR = atoi(argv[5])
+        RANDOM_FACTOR = atoi(argv[5]);
     }
 
     if(argc > 6) {
-        FACTOR_MULTIPLIER = atoi(argv[6])
+        FACTOR_MULTIPLIER = atoi(argv[6]);
     }
 }
 
@@ -114,18 +117,18 @@ float ** readData(char * inputFile, int * height, int * width, int * initWidth, 
     *height = initialToFinalLength(*initHeight, iterations);
     *width = initialToFinalLength(*initWidth, iterations);
     data = (float **) malloc ((*height) * sizeof(float *));
-    for(i = 0; i < height; ++i) {
+    for(i = 0; i < *height; ++i) {
         data[i] = (float *) malloc ((*width) * sizeof(float));
     }
 
     // Read file and fill the sparse final data matrix
-    for(i = 0; i < initHeight; ++i) {
+    for(i = 0; i < *initHeight; ++i) {
         realI = i * scalingFactor;
-        for(j = 0; j < initWidth; ++j) {
+        for(j = 0; j < *initWidth; ++j) {
             fscanf(file, "%f", &data[realI][j * scalingFactor]);
             printf("%f ", data[realI][j * scalingFactor]);
         }
-        printf("\n")
+        printf("\n");
     }
     fclose (file);
 
@@ -152,7 +155,7 @@ int getDataLength(int rank, int length, int N) {
 float ** importAndScatterData(int rank, char * inputFile, int * height, int * width, int * initWidth, int * initHeight, int iterations, int P, int Q) {
     int r, i, j, k, realI, currentI = 0, currentJ = 0, tmpLength = -1, N = P*Q, p, q;
     int scalingFactor = virtualToRealCoordsFactor(0, iterations);
-    float ** data, float * tmp;
+    float ** data, * tmp;
     int * dataSize = (int *) malloc(2 * sizeof(int));
 
     if(rank == 0) {
@@ -164,8 +167,8 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
             rankToCoords(r, P, &p, &q);
 
             // Send data size
-            dataSize[0] = getDataLength(r, initWidth, P);
-            dataSize[1] = getDataLength(r, initHeight, Q);
+            dataSize[0] = getDataLength(r, *initWidth, P);
+            dataSize[1] = getDataLength(r, *initHeight, Q);
             MPI_Send(dataSize, 2, MPI_INT, r, 1, MPI_COMM_WORLD);
 
             //Send data
@@ -207,7 +210,7 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
 
         // Initialize data matrix
         data = (float **) malloc ((*height) * sizeof(float *));
-        for(i = 0; i < height; ++i) {
+        for(i = 0; i < *height; ++i) {
             data[i] = (float *) malloc ((*width) * sizeof(float));
         }
 
@@ -239,7 +242,7 @@ float * getDataToSend(float ** data, int height, int width, int scalingFactor, d
     float * result;
     int i, j, k = 0;
 
-    if(direction == TOP) {
+    if(direction == UP) {
         result = (float *) malloc ((width - 1) / 2 * sizeof(float));
         i = scalingFactor;
         for(j = 1; j < width; j += 2, ++k) {
@@ -275,7 +278,7 @@ float * getDataToSend(float ** data, int height, int width, int scalingFactor, d
  * Data exchange is required before calling this function*/
 void updateDiamonds(float ** data, int height, int width, int scalingFactor,
     direction_t direction, float * squares, float * remoteSquares) {
-    int i, realI, realJ, k = 0, n;
+    int i, j, realI, realJ, k = 0, n;
 
     if(direction == RIGHT || direction == LEFT) {
         if(direction == RIGHT) {
@@ -289,24 +292,24 @@ void updateDiamonds(float ** data, int height, int width, int scalingFactor,
             realI = i * scalingFactor;
             data[realI][realJ] = data[realI-1][realJ] + squares[k] + data[realI+1][realJ];
             if(remoteSquares != NULL) {
-                data[realI][realJ] = (data[realI][realJ] + remoteSquares[k]) / 4.0
+                data[realI][realJ] = (data[realI][realJ] + remoteSquares[k]) / 4.0;
             } else {
                 data[realI][realJ] /= 3.0;
             }
         }
 
-    } else if(direction == TOP || direction == DOWN) {
-        if(direction == TOP) {
+    } else if(direction == UP || direction == DOWN) {
+        if(direction == UP) {
             realI = scalingFactor;
         } else if(direction == DOWN) {
             realI = (height - 1) * scalingFactor;
         }
 
         for(j = 1; j < width; j += 2, ++k) {
-            realJ = J * scalingFactor;
+            realJ = j * scalingFactor;
             data[realI][realJ] = data[realI][realJ-1] + squares[k] + data[realI][realJ+1];
             if(remoteSquares != NULL) {
-                data[realI][realJ] = (data[realI][realJ] + remoteSquares[k]) / 4.0
+                data[realI][realJ] = (data[realI][realJ] + remoteSquares[k]) / 4.0;
             } else {
                 data[realI][realJ] /= 3.0;
             }
@@ -316,17 +319,17 @@ void updateDiamonds(float ** data, int height, int width, int scalingFactor,
 
 /* Exchange squares and update diamonds for one specific direction
  * p and q are the coordinates of the REMOTE process */
-void exchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q,
+void directedExchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q,
     direction_t direction, int sendFirst) {
     float * squares, * remoteSquares;
     int length = height;
 
-    if(direction == TOP || direction == DOWN) {
+    if(direction == UP || direction == DOWN) {
         length = width;
     }
 
     squares = getDataToSend(data, height, width, scalingFactor, direction);
-    if(existProcess(p, q, P, Q) {
+    if(existProcess(p, q, P, Q)) {
         if(sendFirst == 1) {
             MPI_Send(squares, (length - 1) / 2, MPI_FLOAT, coordsToRank(p, q, P), 1, MPI_COMM_WORLD);
             remoteSquares = (float *) malloc ((length - 1) / 2 * sizeof(float));
@@ -351,20 +354,20 @@ void exchangeSquares(float ** data, int height, int width, int scalingFactor, in
 void exchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q) {
     // Right - left exchange
     if(p % 2 == 0) {
-        exchangeSquares(data, height, width, scalingFactor, p+1, q, P, Q, RIGHT, 1);
-        exchangeSquares(data, height, width, scalingFactor, p-1, q, P, Q, LEFT, 1);
+        directedExchangeSquares(data, height, width, scalingFactor, p+1, q, P, Q, RIGHT, 1);
+        directedExchangeSquares(data, height, width, scalingFactor, p-1, q, P, Q, LEFT, 1);
     } else {
-        exchangeSquares(data, height, width, scalingFactor, p-1, q, P, Q, LEFT, 0);
-        exchangeSquares(data, height, width, scalingFactor, p+1, q, P, Q, RIGHT, 0);
+        directedExchangeSquares(data, height, width, scalingFactor, p-1, q, P, Q, LEFT, 0);
+        directedExchangeSquares(data, height, width, scalingFactor, p+1, q, P, Q, RIGHT, 0);
     }
 
     // Top - down exchange
     if(q % 2 == 0) {
-        exchangeSquares(data, height, width, scalingFactor, p, q+1, P, Q, DOWN, 1);
-        exchangeSquares(data, height, width, scalingFactor, p, q-1, P, Q, TOP, 1);
+        directedExchangeSquares(data, height, width, scalingFactor, p, q+1, P, Q, DOWN, 1);
+        directedExchangeSquares(data, height, width, scalingFactor, p, q-1, P, Q, UP, 1);
     } else {
-        exchangeSquares(data, height, width, scalingFactor, p, q-1, P, Q, TOP, 0);
-        exchangeSquares(data, height, width, scalingFactor, p, q+1, P, Q, DOWN, 0);
+        directedExchangeSquares(data, height, width, scalingFactor, p, q-1, P, Q, UP, 0);
+        directedExchangeSquares(data, height, width, scalingFactor, p, q+1, P, Q, DOWN, 0);
     }
 }
 
@@ -421,7 +424,7 @@ void pourWater(float ** data, int height, int width) {
 }
 
 /* Gather final data from every process then complete the data matrix for final result */
-void gather(float ** data, int height, int width, int rank, int P, int Q) {
+void gatherData(float ** data, int height, int width, int rank, int P, int Q) {
     float * tmp;
     int i, j, k = 0, r, remoteHeight, remoteWidth, tmpLength = -1, p, q, currentI = 0, currentJ = 0;
 
@@ -478,7 +481,7 @@ void exportData(float ** data, int height, int width, char * outputFile) {
     FILE * file = fopen(outputFile,"w");
 
     if(MALTAB_EXPORT == 1) {
-        fprintf(file, "terrain = [", width, height);
+        fprintf(file, "terrain = [");
     } else {
         fprintf(file, "%d %d\n", width, height);
     }
@@ -506,25 +509,26 @@ void exportData(float ** data, int height, int width, char * outputFile) {
 }
 
 /* Compute a distributed fractal terrain generation using the diamond-square algorithm
- * Command line is:
- * mpirun -np N ./BINARY_PATH FILE_PATH.in FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]
+ *
+ * Compiling: mpicc diamond_square.c -lm -o diamond_square
+ * Execution: mpirun -np N ./BINARY_PATH FILE_PATH.in FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]
  * With N: number of processes, FILE_PATH.in the input file, FILE_PATH.out the output file
- * ITERATIONS: the scaling factor between the input and output data structure (> 0)
+ * ITERATIONS: the scaling factor between the input and output data structure (>= 0)
  *
  * To display the content of the output file, use (MATLAB_EXPORT must be set to 1)
  * surf(0:100:(WIDTH-1)*100,0:100:(HEIGHT-1)*100, TERRAIN);
  */
 int main(int argc, char **argv)
 {
-    int rank, N, p, P, q, Q;
-    int heigth, width, initHeight, initWidth, iterations;
+    int i, rank, N, p, P, q, Q;
+    int height, width, initHeight, initWidth, iterations;
     clock_t begin, end;
     double time_spent;
     char *inputFile, *outputFile;
     float **data;
 
     parseCommandLine(argc, argv, &inputFile, &outputFile, &iterations);
-    initMPI(argc, argv, &N, &rank)
+    initMPI(argc, argv, &N, &rank);
     getProcessesDistribution(N, &P, &Q);
     rankToCoords(rank, P, &p, &q);
 
@@ -533,7 +537,7 @@ int main(int argc, char **argv)
 
     begin = clock();
     data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q);
-    diamondSquare(data, initWidth, initHeight, height, width, iterations, p, q, P, Q);
+    diamondSquare(data, initWidth, initHeight, iterations, p, q, P, Q);
     pourWater(data, height, width);
     gatherData(data, height, width, rank, P, Q);
 
