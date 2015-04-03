@@ -11,7 +11,7 @@ typedef enum {UP, RIGHT, LEFT, DOWN} direction_t;
 WATER_HEIGHT = -1;
 RANDOM_FACTOR = 10;
 FACTOR_MULTIPLIER = 0.5;
-MALTAB_OUTPUT = 1;
+MALTAB_EXPORT = 0;
 
 /* Initialize the values P and Q in order to distribute
  * N processes on a P*Q grid */
@@ -66,6 +66,7 @@ int virtualToRealCoordsFactor(int iter, int iterations) {
     return pow(2, iterations - iter);
 }
 
+/* Parse the command line arguments and raise an error if an invalid input is given */
 void parseCommandLine(int argc, char **argv, char ** inputFile, ** outputFile, int * iterations) {
     if (argc < 4) {
         printf("Invalid number of arguments (%d), %d expected.\n" +
@@ -91,6 +92,7 @@ void parseCommandLine(int argc, char **argv, char ** inputFile, ** outputFile, i
     }
 }
 
+/* Initialize the MPI communication system */
 void initMPI(int argc, char **argv, int *N, int *rank) {
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, N);
@@ -130,6 +132,8 @@ float ** readData(char * inputFile, int * height, int * width, int * initWidth, 
     return data;
 }
 
+/* Return the data length (height or width) for a given process
+ * according to the total length dedicated to every process */
 int getDataLength(int rank, int length, int N) {
     int size = length / N;
 
@@ -144,6 +148,7 @@ int getDataLength(int rank, int length, int N) {
     return size;
 }
 
+/* Read the initial matrix from an input file then send to each process the part it has to compute */
 float ** importAndScatterData(int rank, char * inputFile, int * height, int * width, int * initWidth, int * initHeight, int iterations, int P, int Q) {
     int r, i, j, k, realI, currentI = 0, currentJ = 0, tmpLength = -1, N = P*Q, p, q;
     int scalingFactor = virtualToRealCoordsFactor(0, iterations);
@@ -180,8 +185,11 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
 
             MPI_Send(tmp, tmpLength, MPI_FLOAT, r, 1, MPI_COMM_WORLD);
 
-            currentJ += dataSize[0];
-            currentI += dataSize[1];
+            currentJ += dataSize[0] - 1;
+            if(q == Q - 1) {
+                currentI += dataSize[1] - 1;
+                currentJ = 0;
+            }
         }
 
     } else {
@@ -263,7 +271,10 @@ float * getDataToSend(float ** data, int height, int width, int scalingFactor, d
     return result;
 }
 
-void updateDiamonds(float ** data, int height, int width, int scalingFactor, direction_t direction, float * squares, float * remoteSquares) {
+/* Complete the diamond pass for the matrix side of a specific direction
+ * Data exchange is required before calling this function*/
+void updateDiamonds(float ** data, int height, int width, int scalingFactor,
+    direction_t direction, float * squares, float * remoteSquares) {
     int i, realI, realJ, k = 0, n;
 
     if(direction == RIGHT || direction == LEFT) {
@@ -397,6 +408,7 @@ void diamondSquare(float ** data, int width, int height, int iterations, int p, 
     }
 }
 
+/* Pour water on the terrain so that every point below the water level is raised to this level */
 void pourWater(float ** data, int height, int width) {
     int i, j;
     for(i = 0; i < height; ++i) {
@@ -408,13 +420,98 @@ void pourWater(float ** data, int height, int width) {
     }
 }
 
+/* Gather final data from every process then complete the data matrix for final result */
+void gather(float ** data, int height, int width, int rank, int P, int Q) {
+    float * tmp;
+    int i, j, k = 0, r, remoteHeight, remoteWidth, tmpLength = -1, p, q, currentI = 0, currentJ = 0;
+
+    if(rank == 0) {
+        for(r = 1; r < P*Q; ++r) {
+            // Receive data
+            remoteHeight = getDataLength(r, height, Q);
+            remoteWidth = getDataLength(r, width, P);
+            if(tmpLength != remoteHeight * remoteWidth) {
+                if(tmpLength != -1) {
+                    free(tmp);
+                }
+                tmpLength = remoteHeight * remoteWidth;
+                tmp = (float *) malloc (tmpLength * sizeof(float));
+            }
+            MPI_Recv(tmp, tmpLength, MPI_FLOAT, r, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            // Insert data into final matrix
+            rankToCoords(r, P, &p, &q);
+            for(i = currentI, k = 0; i < currentI + remoteHeight; ++i) {
+                for(j = currentJ; j < currentJ + remoteWidth; ++j, ++k) {
+                    data[i][j] = tmp[k];
+                }
+            }
+
+            // Update matrix filling progression
+            currentJ += remoteWidth - 1;
+            if(q == Q - 1) {
+                currentI += remoteHeight - 1;
+                currentJ = 0;
+            }
+        }
+
+    } else {
+        // Send data
+        tmpLength = height * width;
+        tmp = (float *) malloc (tmpLength * sizeof(float));
+        for(i = 0; i < height; ++i) {
+            for(j = 0; j < width; ++j, ++k) {
+                tmp[k] = data[i][j];
+            }
+        }
+        MPI_Send(tmp, height * width, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
+    }
+
+    if(tmpLength != -1) {
+        free(tmp);
+    }
+}
+
+/* Export the final terrain in the output file */
+void exportData(float ** data, int height, int width, char * outputFile) {
+    int i, j;
+    FILE * file = fopen(outputFile,"w");
+
+    if(MALTAB_EXPORT == 1) {
+        fprintf(file, "terrain = [", width, height);
+    } else {
+        fprintf(file, "%d %d\n", width, height);
+    }
+
+
+    for(i = 0; i < height; ++i) {
+        for(j = 0; j < width; ++j) {
+            fprintf(file, "%.2f", data[i][j]);
+            if(j != width-1) {
+                fprintf(file, " ");
+            }
+        }
+        if(MALTAB_EXPORT == 1) {
+            fprintf(file, ";\n");
+        } else {
+            fprintf(file, "\n");
+        }
+    }
+
+    if(MALTAB_EXPORT == 1) {
+        fprintf(file, "];");
+    }
+
+    fclose(file);
+}
+
 /* Compute a distributed fractal terrain generation using the diamond-square algorithm
  * Command line is:
  * mpirun -np N ./BINARY_PATH FILE_PATH.in FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]
  * With N: number of processes, FILE_PATH.in the input file, FILE_PATH.out the output file
  * ITERATIONS: the scaling factor between the input and output data structure (> 0)
  *
- * To display the content of the output file, use
+ * To display the content of the output file, use (MATLAB_EXPORT must be set to 1)
  * surf(0:100:(WIDTH-1)*100,0:100:(HEIGHT-1)*100, TERRAIN);
  */
 int main(int argc, char **argv)
@@ -429,7 +526,7 @@ int main(int argc, char **argv)
     parseCommandLine(argc, argv, &inputFile, &outputFile, &iterations);
     initMPI(argc, argv, &N, &rank)
     getProcessesDistribution(N, &P, &Q);
-    rankToCoords(rank, P, &p, &q)
+    rankToCoords(rank, P, &p, &q);
 
     /* Initialization of the random generator's seed */
     srandom(time(NULL) + rank);
@@ -438,13 +535,17 @@ int main(int argc, char **argv)
     data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q);
     diamondSquare(data, initWidth, initHeight, height, width, iterations, p, q, P, Q);
     pourWater(data, height, width);
-    //TODO gather
-    //TODO export
+    gatherData(data, height, width, rank, P, Q);
+
+    if(rank == 0) {
+        exportData(data, height, width, outputFile);
+    }
 
     // Release memory
-    //TODO
-
-    //TODO TEST FUNCTIONS
+    for(i = 0; i < height; ++i) {
+        free(data[i]);
+    }
+    free(data);
 
     // Time display
     if(rank == 0) {
