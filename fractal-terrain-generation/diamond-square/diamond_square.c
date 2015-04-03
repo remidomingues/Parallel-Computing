@@ -66,34 +66,6 @@ int virtualToRealCoordsFactor(int iter, int iterations) {
     return pow(2, iterations - iter);
 }
 
-/*
- * Return an array containing the result of the diamond pass for the current iteration
- * on the right or down edge
- * data: the real sparse matrix
- * height: the virtual height
- * width: the virtual width
- * direction: RIGHT or DOWN
- */
-float * getDataToSend(float ** data, int height, int width, int scalingFactor, direction_t direction) {
-    float * result;
-    int i, j, k = 0;
-
-    if(direction == RIGHT) {
-        result = (float *) malloc (height / 2 * sizeof(float));
-        i = (height - 1) * scalingFactor;
-        for(j = 1; j < width; j += 2, ++k) {
-            result[k] = data[i][j * scalingFactor];
-        }
-
-    } else if(direction == DOWN) {
-        result = (float *) malloc (width / 2 * sizeof(float));
-        j = (width - 1) * scalingFactor;
-        for(i = 1; i < height; i += 2, ++k) {
-            result[k] = data[i * scalingFactor][j];
-        }
-    }
-}
-
 void parseCommandLine(int argc, char **argv, char ** inputFile, ** outputFile, int * iterations) {
     if (argc < 4) {
         printf("Invalid number of arguments (%d), %d expected.\n" +
@@ -247,9 +219,147 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
     free(dataSize);
 }
 
+/*
+ * Return an array containing the result of the diamond pass for the current iteration
+ * on the right or down edge
+ * data: the real sparse matrix
+ * height: the virtual height
+ * width: the virtual width
+ * If the direction is RIGHT or DOWN, the random factors are computed and added to the squares to send
+ */
+float * getDataToSend(float ** data, int height, int width, int scalingFactor, direction_t direction) {
+    float * result;
+    int i, j, k = 0;
+
+    if(direction == TOP) {
+        result = (float *) malloc ((width - 1) / 2 * sizeof(float));
+        i = scalingFactor;
+        for(j = 1; j < width; j += 2, ++k) {
+            result[k] = data[i][j * scalingFactor];
+        }
+
+    } else if(direction == RIGHT) {
+        result = (float *) malloc ((height - 1) / 2 * sizeof(float));
+        j = (width - 2) * scalingFactor;
+        for(i = 1; i < height; i += 2, ++k) {
+            result[k] = data[i * scalingFactor][j] + RANDOM_FACTOR * random() / (float) RAND_MAX;
+        }
+
+    } else if(direction == DOWN) {
+        result = (float *) malloc ((width - 1) / 2 * sizeof(float));
+        i = (height - 2) * scalingFactor;
+        for(j = 1; j < width; j += 2, ++k) {
+            result[k] = data[i][j * scalingFactor] + RANDOM_FACTOR * random() / (float) RAND_MAX;
+        }
+
+    } else if(direction == LEFT) {
+        result = (float *) malloc ((height - 1) / 2 * sizeof(float));
+        j = scalingFactor;
+        for(i = 1; i < height; i += 2, ++k) {
+            result[k] = data[i * scalingFactor][j];
+        }
+    }
+
+    return result;
+}
+
+void updateDiamonds(float ** data, int height, int width, int scalingFactor, direction_t direction, float * squares, float * remoteSquares) {
+    int i, realI, realJ, k = 0, n;
+
+    if(direction == RIGHT || direction == LEFT) {
+        if(direction == RIGHT) {
+            realJ = (width - 1) * scalingFactor;
+        } else if(direction == LEFT) {
+            realJ = scalingFactor;
+        }
+
+        for(i = 1; i < height; i += 2, ++k) {
+            n = 2;
+            realI = i * scalingFactor;
+            data[realI][realJ] = data[realI-1][realJ] + squares[k] + data[realI+1][realJ];
+            if(remoteSquares != NULL) {
+                data[realI][realJ] = (data[realI][realJ] + remoteSquares[k]) / 4.0
+            } else {
+                data[realI][realJ] /= 3.0;
+            }
+        }
+
+    } else if(direction == TOP || direction == DOWN) {
+        if(direction == TOP) {
+            realI = scalingFactor;
+        } else if(direction == DOWN) {
+            realI = (height - 1) * scalingFactor;
+        }
+
+        for(j = 1; j < width; j += 2, ++k) {
+            realJ = J * scalingFactor;
+            data[realI][realJ] = data[realI][realJ-1] + squares[k] + data[realI][realJ+1];
+            if(remoteSquares != NULL) {
+                data[realI][realJ] = (data[realI][realJ] + remoteSquares[k]) / 4.0
+            } else {
+                data[realI][realJ] /= 3.0;
+            }
+        }
+    }
+}
+
+/* Exchange squares and update diamonds for one specific direction
+ * p and q are the coordinates of the REMOTE process */
+void exchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q,
+    direction_t direction, int sendFirst) {
+    float * squares, * remoteSquares;
+    int length = height;
+
+    if(direction == TOP || direction == DOWN) {
+        length = width;
+    }
+
+    squares = getDataToSend(data, height, width, scalingFactor, direction);
+    if(existProcess(p, q, P, Q) {
+        if(sendFirst == 1) {
+            MPI_Send(squares, (length - 1) / 2, MPI_FLOAT, coordsToRank(p, q, P), 1, MPI_COMM_WORLD);
+            remoteSquares = (float *) malloc ((length - 1) / 2 * sizeof(float));
+            MPI_Recv(remoteSquares, (length - 1) / 2, MPI_FLOAT, coordsToRank(p, q, P), 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        } else {
+            remoteSquares = (float *) malloc ((length - 1) / 2 * sizeof(float));
+            MPI_Recv(remoteSquares, (length - 1) / 2, MPI_FLOAT, coordsToRank(p, q, P), 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Send(squares, (length - 1) / 2, MPI_FLOAT, coordsToRank(p, q, P), 1, MPI_COMM_WORLD);
+        }
+
+        updateDiamonds(data, height, width, scalingFactor, direction, squares, remoteSquares);
+        free(remoteSquares);
+
+    } else {
+        updateDiamonds(data, height, width, scalingFactor, direction, squares, NULL);
+    }
+    free(squares);
+}
+
+/* Send and receive the squares on the four sides according to the red black algorithm
+ * Diamond pass is completed after this exchange */
+void exchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q) {
+    // Right - left exchange
+    if(p % 2 == 0) {
+        exchangeSquares(data, height, width, scalingFactor, p+1, q, P, Q, RIGHT, 1);
+        exchangeSquares(data, height, width, scalingFactor, p-1, q, P, Q, LEFT, 1);
+    } else {
+        exchangeSquares(data, height, width, scalingFactor, p-1, q, P, Q, LEFT, 0);
+        exchangeSquares(data, height, width, scalingFactor, p+1, q, P, Q, RIGHT, 0);
+    }
+
+    // Top - down exchange
+    if(q % 2 == 0) {
+        exchangeSquares(data, height, width, scalingFactor, p, q+1, P, Q, DOWN, 1);
+        exchangeSquares(data, height, width, scalingFactor, p, q-1, P, Q, TOP, 1);
+    } else {
+        exchangeSquares(data, height, width, scalingFactor, p, q-1, P, Q, TOP, 0);
+        exchangeSquares(data, height, width, scalingFactor, p, q+1, P, Q, DOWN, 0);
+    }
+}
+
 /* Diamond-square algorithm */
-void diamondSquare(float ** data, int width, int height, int iterations) {
-    int i, j, realI, realJ, k, scalingFactor, start, n, sum;
+void diamondSquare(float ** data, int width, int height, int iterations, int p, int q, int P, int Q) {
+    int i, j, realI, realJ, k, scalingFactor, start;
 
     // Iterations
     for(k = 0; k < iterations; ++k) {
@@ -267,41 +377,22 @@ void diamondSquare(float ** data, int width, int height, int iterations) {
             }
         }
 
-        // Diamond pass
+        // Diamond pass - Diamonds on the side are not computed
         start = 1;
-        // ==> Idée: on vire les IF de diamond pass (on calcule pas les bords)
-        // Ensuite, à la fin de l'iteration, on échange les data, PUIS on calcule les diamants des bords
-        // (attention si on est un process de bord)
-        // et c'est là qu'on fait les if du coup
-            // Du coup, on va devoir faire un red black est/west, north/south
-            // les process enverront les C sur les bords et une fois reçus, les diamants des bords seront calculés
-        for(i = 0; i < height; ++i) {
-            // TODO: pas calculer les bords (changer idx start end)
-            for(j = start; j < width; ++j) {
-                n = 0;
-                sum = 0;
-                //TODO: keep for later
-                if(i != 0) {
-                    sum += data[realI-1][realJ];
-                    ++n;
-                }
-                if(j != 0) {
-                    sum += data[realI][realJ-1];
-                    ++n;
-                }
-                if(i != 0) {
-                    sum += data[realI+1][realJ];
-                    ++n;
-                }
-                if(i != 0) {
-                    sum += data[realI][realJ+1];
-                    ++n;
-                }
-                //TODO: n = 4
-                data[realI][realJ] = (sum + RANDOM_FACTOR * random() / (float) RAND_MAX) / n;
+        for(i = 1; i < height - 1; ++i) {
+            realI = i * scalingFactor;
+            for(j = start + 1; j < width - 1; ++j) {
+                realJ = j * scalingFactor;
+                data[realI][realJ] = (data[realI-1][realJ] + data[realI][realJ-1] +
+                    data[realI+1][realJ] + data[realI][realJ+1] + RANDOM_FACTOR * random() / (float) RAND_MAX) / 4.0;
             }
             start = (start + 1) % 2;
         }
+
+        // Data exchange - Only the squares on the side and the random factors are exchanged
+        exchangeSquares(data, height, width, scalingFactor, p, q, P, Q);
+
+        // Random factor attenuation
         RANDOM_FACTOR *= FACTOR_MULTIPLIER;
     }
 }
@@ -345,7 +436,7 @@ int main(int argc, char **argv)
 
     begin = clock();
     data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q);
-    diamondSquare(data, initWidth, initHeight, height, width, iterations);
+    diamondSquare(data, initWidth, initHeight, height, width, iterations, p, q, P, Q);
     pourWater(data, height, width);
     //TODO gather
     //TODO export
