@@ -85,19 +85,22 @@ int virtualToRealCoordsFactor(int iter, int iterations) {
 
 /* Parse the command line arguments and raise an error if an invalid input is given */
 void parseCommandLine(int argc, char **argv, char ** inputFile, char ** outputFile, int * iterations) {
-    if (argc < 4) {
-        printf("Invalid number of arguments (%d), %d expected at least.\n", argc-1, 3);
-        printf("Command line template is \"mpirun -np N ./BINARY_PATH FILE_PATH.in FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]\"\n");
+    if (argc < 3) {
+        printf("Invalid number of arguments (%d), %d expected at least.\n", argc-1, 2);
+        printf("Command line template is \"mpirun -np N ./BINARY_PATH ITERATIONS FILE_PATH.in [FILE_PATH.out] [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]\"\n");
         exit(-1);
     }
 
-    *inputFile = argv[1];
-    *outputFile = argv[2];
-    *iterations = atoi(argv[3]);
+    *iterations = atoi(argv[1]);
+    *inputFile = argv[2];
 
     if((*iterations) < 0) {
         printf("Invalid number of iterations (%d). Iterations must be higher or equal than 0\n", *iterations);
         exit(-1);
+    }
+
+    if(argc > 3) {
+        *outputFile = argv[3];
     }
 
     if(argc > 4) {
@@ -169,7 +172,7 @@ int getDataLength(int rank, int length, int N) {
 }
 
 /* Read the initial matrix from an input file then send to each process the part it has to compute */
-float ** importAndScatterData(int rank, char * inputFile, int * height, int * width, int * initWidth, int * initHeight, int iterations, int P, int Q) {
+float ** importAndScatterData(int rank, char * inputFile, int * height, int * width, int * initWidth, int * initHeight, int iterations, int P, int Q, clock_t * begin) {
     int r, i, j, k, realI, currentI = 0, currentJ = 0, tmpLength = -1, N = P*Q, p = 0, q = 0;
     int scalingFactor = virtualToRealCoordsFactor(0, iterations);
     float ** data, * tmp;
@@ -182,13 +185,13 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
             printf("Invalid number of processes. Input cannot fit the number of processes. Try another process distribution\n");
             exit(-1);
         }
+        *begin = clock();
         *initWidth = getDataLength(0, INIT_TERRAIN_WIDTH, P);
         *initHeight = getDataLength(0, INIT_TERRAIN_HEIGHT, Q);
         *height = initialToFinalLength(*initHeight, iterations);
         *width = initialToFinalLength(*initWidth, iterations);
         dataSize[0] = *initWidth;
         dataSize[1] = *initHeight;
-        printf("%d is %dx%d\n", 0, dataSize[0], dataSize[1]);
 
         printf("0 > Scattering data\n");
 
@@ -207,7 +210,6 @@ float ** importAndScatterData(int rank, char * inputFile, int * height, int * wi
             dataSize[0] = getDataLength(p, INIT_TERRAIN_WIDTH, P);
             dataSize[1] = getDataLength(q, INIT_TERRAIN_HEIGHT, Q);
             MPI_Send(dataSize, 2, MPI_INT, r, 1, MPI_COMM_WORLD);
-            printf("%d is %dx%d\n", r, dataSize[0], dataSize[1]);
 
             //Send data
             if(tmpLength != dataSize[0] * dataSize[1]) {
@@ -526,6 +528,7 @@ void gatherData(float ** data, int height, int width, int rank, int P, int Q, in
 /* Export the final terrain in the output file */
 void exportData(float ** data, int height, int width, char * outputFile) {
     int i, j;
+    printf("0 > Exporting data\n");
     FILE * file = fopen(outputFile,"w");
 
     if(MALTAB_EXPORT == 1) {
@@ -561,7 +564,7 @@ void exportData(float ** data, int height, int width, char * outputFile) {
 /* Compute a distributed fractal terrain generation using the diamond-square algorithm
  *
  * Compiling: mpicc diamond_square.c -lm -o diamond_square
- * Execution: mpirun -np N ./BINARY_PATH FILE_PATH.in FILE_PATH.out ITERATIONS [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]
+ * Execution: mpirun -np N ./BINARY_PATH ITERATIONS FILE_PATH.in [FILE_PATH.out] [WATER_HEIGHT] [RAND_FACTOR] [FACTOR_MULTIPLIER]
  * With N: number of processes, FILE_PATH.in the input file, FILE_PATH.out the output file
  * ITERATIONS: the scaling factor between the input and output data structure (>= 0)
  *
@@ -572,9 +575,9 @@ int main(int argc, char **argv)
 {
     int i, rank, N, p, P, q, Q;
     int height, width, initHeight, initWidth, iterations;
-    clock_t begin, end;
+    clock_t begin1, begin2, end1, end2;
     double time_spent;
-    char *inputFile, *outputFile;
+    char *inputFile, *outputFile = NULL;
     float **data;
 
     parseCommandLine(argc, argv, &inputFile, &outputFile, &iterations);
@@ -590,15 +593,17 @@ int main(int argc, char **argv)
     /* Initialization of the random generator's seed */
     srandom(time(NULL) + rank);
 
-    begin = clock();
-    data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q);
+    begin1 = clock();
+    data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q, &begin2);
     diamondSquare(data, initWidth, initHeight, iterations, p, q, P, Q);
     pourWater(data, height, width);
     gatherData(data, height, width, rank, P, Q, iterations);
+    end2 = clock();
 
-    if(rank == 0) {
+    if(rank == 0 && outputFile != NULL) {
         exportData(data, FINAL_TERRAIN_HEIGHT, FINAL_TERRAIN_WIDTH, outputFile);
     }
+    end1 = clock();
 
     // Release memory
     for(i = 0; i < height; ++i) {
@@ -608,9 +613,8 @@ int main(int argc, char **argv)
 
     // Time display
     if(rank == 0) {
-        end = clock();
-        time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-        printf("0 > Computation time: %.3f seconds\n", time_spent);
+        printf("0 > Computation time:\n- Disk excluded: %.3f seconds\n- Disk included: %.3f seconds\n",
+            (double)(end2 - begin2) / CLOCKS_PER_SEC, (double)(end1 - begin1) / CLOCKS_PER_SEC);
     }
 
     MPI_Finalize();
