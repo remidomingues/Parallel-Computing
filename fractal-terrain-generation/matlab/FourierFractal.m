@@ -1,20 +1,26 @@
 function FourierFractal(N,alpha)
-Nhalf = ceil(N/2);
-Px = zeros(1,Nhalf);
-Py = zeros(1,Nhalf);
+Nf = ceil(N/4);
+% Px = zeros(1,Nf);
+% Py = zeros(1,Nf);
 h = zeros(N,N);
-P = zeros(Nhalf,Nhalf);
+P = zeros(Nf,Nf);
 
-P = randn(Nhalf,Nhalf) +i*randn(Nhalf,Nhalf);
-
-for f=1:Nhalf
-    Px(f) = f^(-alpha) * randn * exp(2i * pi * rand);
-    Py(f) = f^(-alpha) * randn * exp(2i * pi * rand);
+for fx=1:Nf
+    for fy=1:Nf
+        P(fx,fy) = N^2 * (fx^2+fy^2)^(-alpha/2) * randn * exp(2i * pi * rand); 
+%         P(fx,fy) = (fx^2+fy^2)^(-alpha/2) * (randn + 1i*randn);
+    end
 end
+P(1,1) = 0;
+% for f=2:Nhalf
+%     Px(f) = f^(-alpha) * randn * exp(2i * pi * rand);
+%     Py(f) = f^(-alpha) * randn * exp(2i * pi * rand);
+% end
 % 
- P = Px'*Py;
+% P = Px'*Py;
+% h = ifft(Px)' * ifft(Py);
 
-h = ifft(Px)' * ifft(Py);
+h = ifft2(P);
 
 % for x=1:N
 %     for y=1:N
@@ -26,12 +32,11 @@ h = ifft(Px)' * ifft(Py);
 %         end
 %     end
 % end
-figure
-surf(real(h))
 % figure
-% surf(real(f))
+% abs(P)
 
 
-% plotTerrain(h);
+
+plotTerrain(real(h));
 end
     

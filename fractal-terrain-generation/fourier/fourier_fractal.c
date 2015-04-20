@@ -8,6 +8,7 @@
 #include "mpi.h"
 
 #define TAU 6.28318530718 // see tauday.com
+#define RATIO 0.25 // ratio between frequency size and real size
 
 /* Global width & height values */
 int width, height;
@@ -19,15 +20,15 @@ void initMPI(int argc, char **argv, int *N, int *rank);
 /* Deals with command line arguments */
 void parseCommandLine(int argc, char **argv, double* p); 
 /* Generates and shares a full array of complex coefficients */
-void generateP(int rank, double k, double p, double complex* P);
+void generateP(int rank, int N, double alpha, double complex* P);
 /* Calculates the height with an inverse Fourier Transform */
-void calculateHeight(double complex* Px, double complex* Py, double alpha, int rank, int N, double* data);
+void calculateHeight(double complex* P, int rank, int N, double* data);
 /* Outputs data to stdout */
 void printData(double* data, int rank, int N);
       
 /* Computes a distributed fractal terrain generation using the Fourier tansform of pink noise 
  *
- * Compiling: mpicc diamond_square.c -lm -o diamond_square
+ * Compiling: mpicc SOURCE_PATH -lm -o BINARY_PATH
  * Execution: mpirun -np N ./BINARY_PATH width height p
  * With p: relaxation power, must be greater than 1. The higher it is, the smoother the terrain will be.
  */
@@ -47,18 +48,16 @@ int main(int argc, char **argv)
     /* Initialization of the random generator's seed */
     srandom(time(NULL) + rank);
 
-    double complex* Px = calloc(width/2, sizeof(double complex));
-    assert(Px != NULL);
-    double complex* Py = calloc(height/2, sizeof(double complex));
-    assert(Py != NULL);
+    double complex* P = calloc(RATIO*RATIO*width*height,sizeof(double complex));
+    assert(P != NULL);
     double* data = calloc(width*height/N,sizeof(double));
     assert(data != NULL);
 
     // Get full array of coefficients for each dimension
-    generateP(rank, 0.5*width/N, alpha, Px);
-    generateP(rank, 0.5*height/N, alpha, Py);
+    generateP(rank, N, alpha, P);
 
-    calculateHeight(Px, Py, alpha, rank, N, data);
+    // Compute height sub-matrix
+    calculateHeight(P, rank, N, data);
 
     // Time display
     if(rank == 0) 
@@ -70,10 +69,9 @@ int main(int argc, char **argv)
 
     // Print results
     printData(data, rank, N);
-    
+
     // Release memory
-    free(Px);
-    free(Py);
+    free(P);
     free(data);
 
     MPI_Finalize();
@@ -125,38 +123,50 @@ void initMPI(int argc, char **argv,int *N,int *rank)
     check(MPI_Comm_rank(MPI_COMM_WORLD, rank));
 }
 
-void generateP(int rank, double k, double alpha, double complex* P)
+void generateP(int rank, int N, double alpha, double complex* P)
 {
-    int f;
+    int x,y,fx;
+    int Nx = RATIO*height;
+    int K = RATIO*width/N;
+    double damp = -0.5 * alpha;
     double r2,theta;
-    double complex* Ptemp = calloc(k,sizeof(double complex));
-    for(f = 0; f < k; f++)
+    double complex* Ptemp = calloc(K*Nx,sizeof(double complex));
+    for(x = 0; x < K; x++)
     {
-        r2 = -2 * log((double)rand()/(double)RAND_MAX);
-        theta = (double)rand()/(double)RAND_MAX;
-        Ptemp[f] = pow(rank*k+f+1,-alpha) * sqrt(r2) * cexp(I * TAU * theta);
+        fx = rank*K + x;
+        for(y = 0; y < Nx; y++)
+        {
+            r2 = -2 * log(random()/(double)RAND_MAX);
+            theta = random()/(double)RAND_MAX;
+            Ptemp[Nx*x + y] = pow(fx*fx + y*y,damp) * sqrt(r2) * cexp(I * TAU * theta);
+
+        }
     }
-    check(MPI_Allgather(Ptemp,k,MPI_DOUBLE_COMPLEX,P,k,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD));
+    if(rank == 0) { Ptemp[0] = 0; }
+    check(MPI_Allgather(Ptemp,K*Nx,MPI_DOUBLE_COMPLEX,P,K*Nx,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD));
     free(Ptemp);
+
 }
 
-void calculateHeight(double complex* Px, double complex* Py, double alpha, int rank, int N, double* data)
+void calculateHeight(double complex* P, int rank, int N, double* data)
 {
-    int i,j,fx,fy;
+    int i,j,x,fx,fy;
+    int Nx = RATIO*width;
+    int Ny = RATIO*height;
     int K = width/N;
-    double complex theta;
+    double theta;
 
     for(i = 0; i < K; i++)
     {
+        x = rank*K + i;
         for(j = 0; j < height; j++)
         {
-            for(fx = 0; fx < 0.5*width; fx++)
+            for(fx = 0; fx < Nx; fx++)
             {
-                for(fy = 0; fy < 0.5*height; fy++)
+                for(fy = 0; fy < Ny; fy++)
                 {
-//                     damping = pow(pow(fx+1.0, 2.0) + pow(fy+1.0, 2.0), -alpha/2.0);
-                    theta = (fx+1.0) * (rank*K + i)/(double)width + (fy+1.0) * j/(double)height;
-                    data[height*i + j] +=  creal(Px[fx] * Py[fy] * cexp(I * TAU * theta));
+                    theta = fx * x/(double)width + fy * j/(double)height;
+                    data[height*i + j] +=  creal(P[fx*Nx + fy] * cexp(I * TAU * theta));
                 }
             }
         }

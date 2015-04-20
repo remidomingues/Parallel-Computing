@@ -14,7 +14,7 @@ figure
 surf(log(abs(f)));
 % f= fx' * fy;
 
-h = dct2(f);
+h = idct2(f);
 % for x=1:N
 %     for y=1:N
 %         for fx=1:N
