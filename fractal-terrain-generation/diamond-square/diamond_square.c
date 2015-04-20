@@ -17,6 +17,30 @@ int FINAL_TERRAIN_HEIGHT;
 int INIT_TERRAIN_WIDTH;
 int INIT_TERRAIN_HEIGHT;
 
+/* Functions declaration*/
+void getProcessesDistribution(int N, int *P, int *Q);
+void displayMatrix(float ** data, int height, int width, int scalingFactor);
+int coordsToRank(int p, int q, int P);
+void rankToCoords(int r, int P, int * p, int * q);
+int existProcess(int p, int q, int P, int Q);
+int initialToFinalLength(int length, int iterations);
+int virtualToRealCoordsFactor(int iter, int iterations);
+void parseCommandLine(int argc, char **argv, char ** inputFile, char ** outputFile, int * iterations);
+void initMPI(int argc, char **argv, int *N, int *rank);
+float ** readData(char * inputFile, int * height, int * width, int * initHeight, int * initWidth, int iterations);
+int getDataLength(int rank, int length, int N);
+float ** importAndScatterData(int rank, char * inputFile, int * height, int * width, int * initWidth, int * initHeight, int iterations, int P, int Q, clock_t * begin);
+float * getDataToSend(float ** data, int height, int width, int scalingFactor, direction_t direction);
+void updateDiamonds(float ** data, int height, int width, int scalingFactor,
+    direction_t direction, float * squares, float * remoteSquares);
+void directedExchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q,
+    direction_t direction, int sendFirst);
+void exchangeSquares(float ** data, int height, int width, int scalingFactor, int p, int q, int P, int Q);
+void diamondSquare(float ** data, int width, int height, int iterations, int p, int q, int P, int Q);
+void pourWater(float ** data, int height, int width);
+void gatherData(float ** data, int height, int width, int rank, int P, int Q, int iterations);
+void exportData(float ** data, int height, int width, char * outputFile);
+
 /* Initialize the values P and Q in order to distribute
  * N processes on a P*Q grid */
 void getProcessesDistribution(int N, int *P, int *Q) {
