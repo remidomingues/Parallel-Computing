@@ -1,21 +1,30 @@
 function plotTerrain(varargin)
-if ischar(varargin{1})
-    data = load(varargin{1});
-else
-    data = varargin{1};
-end
-
 plotType = 0;
-if nargin > 1,
-    if (strcmp(varargin{2},'3d') || strcmp(varargin{2},'surf'))
-        plotType = 1;
-    elseif (strcmp(varargin{2},'flat') || strcmp(varargin{2},'image'))
-        plotType = 2;
-    else fprintf('Unknown option %s\n', varargin{2});
+data = [];
+
+for i=1:nargin
+    if ischar(varargin{i})
+        if (strcmp(varargin{i},'3d') || strcmp(varargin{i},'surf'))
+            plotType = 1;
+        elseif (strcmp(varargin{i},'flat') || strcmp(varargin{i},'image'))
+            plotType = 2;
+        else
+            if isempty(data)
+                data = load(varargin{i});
+            else
+                data = data + load(varargin{i});
+            end
+        end
+    else
+        if isempty(data)
+            data = varargin{i};
+        else
+            data = data + varargin{i};
+        end
     end
 end
 
-if plotType <= 1
+if (plotType == 1 || plotType == 0)
     n = 256;
     hmax = max(max(data));
     hmin = min(min(data));
@@ -33,6 +42,7 @@ if plotType <= 1
 elseif (plotType == 2 || plotType == 0)
     imagesc(data);
     colormap(copper);
-    colorbar;
+    axis off;
+    axis equal;
 end
 end

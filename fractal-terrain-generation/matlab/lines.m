@@ -21,18 +21,18 @@ for i=1:Nrays
             h(x,y) = h(x,y) + sign*delta;
         end
     end
-%     if mod(i,100)==1
+%     if (i==1 || mod(log10(i),1)==0)
 %         imagesc(h)
 %         colormap(copper);
+%         titlestr = sprintf('Iterations: %d',i);
+%         title (titlestr);
+%         axis off;
+%         axis equal;
 %         pause
 %     end
 end
 toc
 
-
-
-imagesc(h)
-colormap(copper);
-% plotTerrain(h)
+%  plotTerrain(h);
 
 end

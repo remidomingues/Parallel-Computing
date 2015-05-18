@@ -45,17 +45,20 @@ int main(int argc, char **argv)
     // Compute height matrix
     calculateHeight(width, height, quality, N,  data);
     MPI_Barrier(MPI_COMM_WORLD);
-    check(MPI_Allreduce(MPI_IN_PLACE, data, width*height, MPI_INT, MPI_SUM, MPI_COMM_WORLD));
-    // Time display
     if(rank == 0) 
     {
+        check(MPI_Reduce(MPI_IN_PLACE, data, width*height, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
         end = clock();
         time_spent = (float)(end - begin) / CLOCKS_PER_SEC;
+        // Time display
         fprintf(stderr,"0: Computation time %.3f seconds\n", time_spent);
         // Print results
         printData(width, height, data);
     }
-
+    else
+    {
+    check(MPI_Reduce(data, data, width*height, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD));
+    }
     // Release memory
     free(data);
 

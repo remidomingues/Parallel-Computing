@@ -98,9 +98,10 @@ void parseCommandLine(int argc, char **argv, ptrdiff_t* N0, ptrdiff_t* N1, doubl
         fprintf(stderr,"Error: width and height should be positive\n");
         exit(1);
     }
-    if(*alpha < 1)
+    if(*alpha <= 0)
     {
-        fprintf(stderr,"For physical results, %f should be positive. Continuing...\n",*alpha);
+        fprintf(stderr,"Error: for physical results, alpha should be positive.\n");
+	exit(1);
     }
 }
 
@@ -129,7 +130,6 @@ void initialiseData(fftw_complex* data, ptrdiff_t N0, ptrdiff_t N1, double alpha
 {
     int i,j;
     int fi;
-    const double damp = -0.5*alpha; 
     double r2,theta;
     for (i = 0; i < local_n0; ++i)
     {
@@ -143,7 +143,7 @@ void initialiseData(fftw_complex* data, ptrdiff_t N0, ptrdiff_t N1, double alpha
                 theta = (double)random()/RAND_MAX;
                 /* frequency space is now a normally distributed complex field */
                 /* with a 1/f^alpha damping */
-                data[i*N1+j] = pow(fi*fi + j*j,damp) * sqrt(r2) * cexp(I *TAU * theta);
+                data[i*N1+j] = pow(fi*fi + j*j,-alpha) * sqrt(r2) * cexp(I *TAU * theta);
             }
         }
         else
