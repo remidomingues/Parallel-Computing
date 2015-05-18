@@ -1,5 +1,5 @@
 Compile:
-mpicc mandelbrot.c -o mandelbrot
+mpicc -o3 mandelbrot.c -o mandelbrot
 
 Run 4 processes:
 mpirun -np 4 ./mandelbrot
@@ -10,3 +10,7 @@ Connect to Ferlin (Kerberos required):
     module add heimdal easy i-compilers mpi
     spattach -i -p <#virtual_nodes>
     esubmit -n 1 -t 5 mympirun -np 4 <path to your executable>
+
+Add modules:
+i-compilers/11.1
+openmpi/1.5.4-intel-11

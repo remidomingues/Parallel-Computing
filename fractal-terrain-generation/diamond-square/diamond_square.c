@@ -177,7 +177,7 @@ float ** readData(char * inputFile, int * height, int * width, int * initHeight,
     fclose (file);
 
     printf("0 > %dx%d terrain imported. Result will be %dx%d (%d iterations)\n",
-        *initWidth, *initHeight, *width, *height, iterations);
+    //    *initWidth, *initHeight, *width, *height, iterations);
 
     return data;
 }
@@ -620,9 +620,9 @@ int main(int argc, char **argv)
     begin1 = clock();
     data = importAndScatterData(rank, inputFile, &height, &width, &initWidth, &initHeight, iterations, P, Q, &begin2);
     diamondSquare(data, initWidth, initHeight, iterations, p, q, P, Q);
+    end2 = clock();
     pourWater(data, height, width);
     gatherData(data, height, width, rank, P, Q, iterations);
-    end2 = clock();
 
     if(rank == 0 && outputFile != NULL) {
         exportData(data, FINAL_TERRAIN_HEIGHT, FINAL_TERRAIN_WIDTH, outputFile);
@@ -637,7 +637,7 @@ int main(int argc, char **argv)
 
     // Time display
     if(rank == 0) {
-        printf("0 > Computation time:\n- Disk excluded: %.3f seconds\n- Disk included: %.3f seconds\n",
+        printf("0 > Computation time:\n- Gather excluded: %.3f seconds\n- Disk included: %.3f seconds\n",
             (double)(end2 - begin2) / CLOCKS_PER_SEC, (double)(end1 - begin1) / CLOCKS_PER_SEC);
     }
 
