@@ -1,0 +1,37 @@
+\section*{Introduction}
+Stochastic algorithms for the  generation of fractal terrains has a considerable interest in computer graphics, because of their ability to mimic the behaviour of natural terrain.
+The applications of fractal terrains is not limited to the generation of  terrain, but includes the generation of clouds, textures, noise and image filters.
+In this project we provide and compare three different algorithms that generates fractal landscapes on distributed-memory parallel environments using MPI.
+
+The first, {\em Diamond-Square}, is a simple and widely used recursive algorithm designed to compute high resolution height maps given a low resolution one.
+Then we introduce a little-known algorithm that we call {\em Linear Displacement}, that is an attempt to avoid the recursiveness of Diamond-Square.
+Finally we discuss an algorithm that uses the {\em Fast Fourier Transform} to do the transform of pink noise, that has an amplitude of $1/f^\alpha$.
+
+\input{diamond_square}
+\pagebreak
+\FloatBarrier
+
+\input{lines}
+\pagebreak
+\FloatBarrier
+
+\input{fast_fourier_transform}
+
+\section{Conclusion}
+In this work we provided the implementation and discussed three different stochastic algorithms for the generation of fractal landscapes in parallel environments.
+
+The classic Diamond-Square algorithm has the lowest complexity and performed the fastest, although does not scale as nicely in distributed-memory parallel environments due to the fact that there is an increasing amount of communication required between processes. 
+The somewhat unusual Linear Displacement algorithm was presented for academic interest, but performs quite poorly both at large scales and in large parallel systems.
+Finally, using the Fast Fourier Transform of pink noise we provided an algorithm that is slower than Diamond-Square but behaves more efficiently in large-scale environments, where the data has to be distributed along different memory locations and the number of processes is considerable.
+
+More advanced terrain generations take in account that the fractal properties are not uniform everywhere. A more advanced technique uses {\em multifractal systems} where we combines different fractal algorithms. As a simple experiment we combined the results from the  algorithms we implemented, as can be seen in fig.~\ref{fig:full} \begin{figure}[htb].
+\centering
+    \includegraphics[width=\textwidth]{img/big.png}
+    \caption{\label{fig:full} Detail of a terrain generated using different fractal algorithms. }
+\end{figure}
+\pagebreak
+\FloatBarrier
+
+\bibliographystyle{plain}
+\renewcommand{\bibname}{References}
+\bibliography{references}

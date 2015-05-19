@@ -1,0 +1,74 @@
+\documentclass[a4paper,12pt,final,oneside,openright]{article}
+\usepackage{report}
+
+\newcommand{\reporttitle}{Parallel Computations for Large-Scale Problems}
+\newcommand{\enseignants}{
+Michael Hanke}
+
+\newcommand{\reportauthor}{
+Rémi Domingues 920604-T239\\
+Giacomo Giudice 930829-T128}
+% \newcommand{\hexanome}{H4211}
+\newcommand{\reportsubject}{}
+\newcommand{\stagetopic}{Fractal Terrain Generation}
+\newcommand{\dateperiod}{March $30^{th}$ - May $15^{th}$}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\setlength{\parskip}{1ex} % Espace entre les paragraphes
+\renewcommand{\arraystretch}{1.5}
+
+\hypersetup{
+    pdftitle={\reporttitle},%
+    pdfauthor={\reportauthor},%
+    pdfsubject={\reportsubject},%
+    pdfkeywords={}
+}
+
+\title{\reporttitle}
+\author{\reportauthor}
+
+\setlongtables
+\usepackage[font=small,skip=0pt]{caption}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{placeins}
+
+\def \be {\begin{equation}}
+\def \ee {\end{equation}}
+\def \dd  {{\rm d}}
+\def \bf {\textbf}
+\def \bea {\begin{eqnarray}}
+\def \eea {\end{eqnarray}}
+\def \bi {\begin{itemize}}
+\def \ei {\end{itemize}}
+\def \ib {\item[$\bullet$]}
+\def \H {{\mathcal H}}
+\def \grad{\nabla}
+\def \order {{\cal O}}
+
+
+%\setcounter{tocdepth}{4}
+\begin{document}
+    \renewcommand{\chaptername}{} %\renewcommand{\thechapter}{}
+    \renewcommand{\contentsname}{Contents}
+
+    \pagestyle{empty}
+    \pagenumbering{arabic}
+    \input{title}
+    \pagebreak
+    \sloppy          % Justification moins stricte : des mots ne dépasseront pas des paragraphes
+
+    %\frontmatter
+    \thispagestyle{empty}
+    \tableofcontents
+    \addtocontents{toc}{\protect\thispagestyle{empty}}
+    \pagebreak
+
+    %\mainmatter
+    \pagestyle{headings}
+    %\renewcommand{\chaptermark}[1]{\markboth{\MakeUppercase{\chaptername\ \thechapter.\ #1}}{}}
+    %\renewcommand{\sectionmark}[1]{\markright{\thesection{} #1}}
+    
+    \input{content}
+    
+\end{document}
